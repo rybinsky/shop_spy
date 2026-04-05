@@ -348,6 +348,8 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
 
 def _parse_llm_response(text: str) -> dict:
     """Парсит JSON из ответа LLM, убирая маркдаун обертки."""
+    import re
+    
     text = text.strip()
     # Убираем ```json ... ```
     if text.startswith("```"):
@@ -355,7 +357,42 @@ def _parse_llm_response(text: str) -> dict:
     if text.endswith("```"):
         text = text.rsplit("```", 1)[0]
     text = text.strip()
-    return json.loads(text)
+    
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        # Логируем для отладки
+        print(f"JSON decode error: {e}")
+        print(f"Text preview: {text[:300]}...")
+        
+        # Пытаемся починить обрезанный JSON
+        if "Unterminated string" in str(e):
+            # Пробуем закрыть строку и структуру
+            pos = getattr(e, 'pos', len(text))
+            fixed = text[:pos] + '"'
+            
+            # Считаем и закрываем открытые скобки
+            open_braces = fixed.count('{') - fixed.count('}')
+            open_brackets = fixed.count('[') - fixed.count(']')
+            fixed += ']' * open_brackets + '}' * open_braces
+            
+            try:
+                return json.loads(fixed)
+            except:
+                pass
+        
+        # Извлекаем данные через regex как fallback
+        verdict_match = re.search(r'"verdict"\s*:\s*"([^"]*)"', text)
+        rating_match = re.search(r'"rating_honest"\s*:\s*([\d.]+)', text)
+        
+        return {
+            "pros": [],
+            "cons": [],
+            "verdict": verdict_match.group(1) if verdict_match else f"Ошибка парсинга: {str(e)}",
+            "rating_honest": float(rating_match.group(1)) if rating_match else None,
+            "buy_recommendation": "unknown"
+        }
+
 
 
 async def _call_gemini(api_key: str, prompt: str) -> dict:
