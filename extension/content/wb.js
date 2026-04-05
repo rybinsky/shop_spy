@@ -11,28 +11,32 @@
   }
 
   function getProductName() {
-    for (const s of ['h1.product-page__title', '.product-page__header h1', '[data-link="text{:product^goodsName}"]', 'h1']) {
+    // Новый селектор для WB
+    for (const s of ['h2.productTitle--lfc4o', '.productTitle--lfc4o', 'h1.product-page__title', '.product-page__header h1', 'h1']) {
       const el = document.querySelector(s);
       if (el && el.textContent.trim().length > 3) return el.textContent.trim();
     }
     return document.title.split(/[-|]/)[0].trim();
   }
-
+  
   function getCurrentPrice() {
-    for (const s of ['.price-block__final-price', 'ins.price-block__final-price', 'span.price-block__final-price', '.price-block__price']) {
+    // Новый селектор для WB
+    for (const s of ['ins.priceBlockFinalPrice--iToZR', '.priceBlockFinalPrice--iToZR', '.price-block__final-price']) {
+      const el = document.querySelector(s);
+      if (el) { const v = parseFloat(el.textContent.replace(/[^\d]/g, '')); if (v > 0) return v; }
+    }
+    return null;
+  }
+  
+  function getOriginalPrice() {
+    // Новый селектор для WB
+    for (const s of ['span.priceBlockOldPrice--qSWAf', '.priceBlockOldPrice--qSWAf', '.price-block__old-price del']) {
       const el = document.querySelector(s);
       if (el) { const v = parseFloat(el.textContent.replace(/[^\d]/g, '')); if (v > 0) return v; }
     }
     return null;
   }
 
-  function getOriginalPrice() {
-    for (const s of ['.price-block__old-price del', 'del.price-block__old-price', '.price-block__old-price']) {
-      const el = document.querySelector(s);
-      if (el) { const v = parseFloat(el.textContent.replace(/[^\d]/g, '')); if (v > 0) return v; }
-    }
-    return null;
-  }
 
   function getReviews() {
     const r = [];
