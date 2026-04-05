@@ -324,7 +324,7 @@ def _parse_llm_response(text: str) -> dict:
 
 async def _call_gemini(api_key: str, prompt: str) -> dict:
     """Вызов Google Gemini API (бесплатный)."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(url, json={
             "contents": [{"parts": [{"text": prompt}]}],
@@ -365,7 +365,7 @@ async def debug_gemini():
     if not api_key:
         return {"error": "GEMINI_API_KEY не задан"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(url, json={
             "contents": [{"parts": [{"text": "Ответь одним словом: работает?"}]}]
