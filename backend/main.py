@@ -18,6 +18,15 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 import httpx
 import uvicorn
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    force=True
+)
+logger = logging.getLogger(__name__)
+
 
 app = FastAPI(title="ShopSpy API", version="0.1.0")
 
@@ -65,7 +74,7 @@ def _check_rate_limit(ip: str):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "shopspy.db")
 CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDqLaNUl8xf94CAvvb-7ueQFJTFN_dcWDE")
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 
@@ -274,9 +283,8 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
     """AI-анализ отзывов через Gemini (бесплатно) или Claude API."""
     ip = request.headers.get("x-forwarded-for", request.client.host).split(",")[0].strip()
     _check_rate_limit(ip)
-
+    
     provider, api_key = get_llm_key()
-
     if not provider:
         return {
             "summary": {
@@ -321,7 +329,6 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
 }}
 
 Пиши "е" вместо "ё". Будь честным и критичным."""
-
     try:
         if provider == "gemini":
             summary = await _call_gemini(api_key, prompt)
@@ -409,7 +416,11 @@ def _parse_llm_response(text: str) -> dict:
 async def _call_gemini(api_key: str, prompt: str) -> dict:
     """Вызов Google Gemini API (бесплатный)."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
+    print("SBVIBIBSUVISBVIUBV")
     async with httpx.AsyncClient(timeout=30) as client:
+        logger.info("="*60)
+        logger.info("CALLING GEMINI API...")
+        
         resp = await client.post(url, json={
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -418,8 +429,24 @@ async def _call_gemini(api_key: str, prompt: str) -> dict:
             }
         })
         data = resp.json()
+        
+        logger.info("="*60)
+        logger.info(f"GEMINI API RESPONSE Status: {resp.status_code}")
+        logger.info(f"GEMINI API RESPONSE Data: {data}")
+        logger.info("="*60)
+        
+        # Проверяем на ошибку
+        if "error" in data:
+            logger.error(f"Gemini API error: {data['error']}")
+            raise Exception(f"Gemini API error: {data['error']}")
+        
+        if "candidates" not in data:
+            logger.error(f"No candidates in response: {data}")
+            raise Exception(f"No candidates in response: {data}")
+        
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return _parse_llm_response(text)
+
 
 
 async def _call_claude(api_key: str, prompt: str) -> dict:
