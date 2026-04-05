@@ -32,7 +32,17 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "shopspy.db")
 CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+
+
+def get_llm_key():
+    """Возвращает (provider, key). Gemini приоритетнее - он бесплатный."""
+    if GEMINI_API_KEY:
+        return ("gemini", GEMINI_API_KEY)
+    if CLAUDE_API_KEY:
+        return ("claude", CLAUDE_API_KEY)
+    return (None, None)
 
 
 # ── Database ──────────────────────────────────────────────
@@ -228,13 +238,15 @@ def analyze_discount(history: list[dict]) -> dict:
 
 @app.post("/api/reviews/analyze")
 async def analyze_reviews(req: ReviewsRequest):
-    """AI-анализ отзывов через Claude API."""
-    if not CLAUDE_API_KEY:
+    """AI-анализ отзывов через Gemini (бесплатно) или Claude API."""
+    provider, api_key = get_llm_key()
+
+    if not provider:
         return {
             "summary": {
-                "pros": ["API ключ не настроен - добавьте ANTHROPIC_API_KEY"],
-                "cons": [],
-                "verdict": "Настройте API ключ для работы AI-анализа",
+                "pros": ["API ключ не настроен"],
+                "cons": ["Получите бесплатный ключ на ai.google.dev"],
+                "verdict": "Добавьте GEMINI_API_KEY (бесплатно, без карты) в переменные окружения на Render",
                 "rating_honest": None,
                 "buy_recommendation": "unknown"
             }
@@ -275,28 +287,10 @@ async def analyze_reviews(req: ReviewsRequest):
 Пиши "е" вместо "ё". Будь честным и критичным."""
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "Content-Type": "application/json",
-                    "x-api-key": CLAUDE_API_KEY,
-                    "anthropic-version": "2023-06-01"
-                },
-                json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": 1000,
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-            )
-            data = resp.json()
-            text = "".join(
-                block["text"] for block in data.get("content", [])
-                if block.get("type") == "text"
-            )
-            text = text.strip().removeprefix("```json").removesuffix("```").strip()
-            summary = json.loads(text)
-
+        if provider == "gemini":
+            summary = await _call_gemini(api_key, prompt)
+        else:
+            summary = await _call_claude(api_key, prompt)
     except Exception as e:
         summary = {
             "pros": [],
@@ -314,6 +308,58 @@ async def analyze_reviews(req: ReviewsRequest):
         )
 
     return {"summary": summary}
+
+
+def _parse_llm_response(text: str) -> dict:
+    """Парсит JSON из ответа LLM, убирая маркдаун обертки."""
+    text = text.strip()
+    # Убираем ```json ... ```
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+    if text.endswith("```"):
+        text = text.rsplit("```", 1)[0]
+    text = text.strip()
+    return json.loads(text)
+
+
+async def _call_gemini(api_key: str, prompt: str) -> dict:
+    """Вызов Google Gemini API (бесплатный)."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(url, json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 1000
+            }
+        })
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return _parse_llm_response(text)
+
+
+async def _call_claude(api_key: str, prompt: str) -> dict:
+    """Вызов Claude API."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01"
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 1000,
+                "messages": [{"role": "user", "content": prompt}]
+            }
+        )
+        data = resp.json()
+        text = "".join(
+            block["text"] for block in data.get("content", [])
+            if block.get("type") == "text"
+        )
+        return _parse_llm_response(text)
 
 
 # ── Stats ─────────────────────────────────────────────────
@@ -390,6 +436,8 @@ if __name__ == "__main__":
     print("=" * 50)
     print(f"  Дашборд:   http://localhost:{port}")
     print(f"  API docs:  http://localhost:{port}/docs")
-    print(f"  Claude AI: {'настроен' if CLAUDE_API_KEY else 'НЕ настроен (нужен ANTHROPIC_API_KEY)'}")
+    provider, key = get_llm_key()
+    ai_status = f"Gemini (бесплатный)" if provider == "gemini" else f"Claude" if provider == "claude" else "НЕ настроен (добавьте GEMINI_API_KEY)"
+    print(f"  Claude AI: {ai_status}")
     print("=" * 50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=port)
