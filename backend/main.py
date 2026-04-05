@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
@@ -28,39 +28,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Rate limiting ─────────────────────────────────────────
-
-RATE_LIMIT_PER_IP = int(os.environ.get("RATE_LIMIT_PER_IP", 10))   # запросов/день с одного IP
-RATE_LIMIT_GLOBAL = int(os.environ.get("RATE_LIMIT_GLOBAL", 200))  # запросов/день всего
-
-_rate_data: dict[str, dict] = {}  # { ip: {count, date} }
-_global_rate: dict = {"count": 0, "date": None}
-
-
-def _check_rate_limit(ip: str):
-    today = datetime.now().date().isoformat()
-
-    # Глобальный лимит
-    if _global_rate["date"] != today:
-        _global_rate["count"] = 0
-        _global_rate["date"] = today
-    if _global_rate["count"] >= RATE_LIMIT_GLOBAL:
-        raise HTTPException(status_code=429, detail="Глобальный дневной лимит AI-запросов исчерпан. Попробуйте завтра.")
-
-    # Лимит по IP
-    entry = _rate_data.get(ip)
-    if not entry or entry["date"] != today:
-        _rate_data[ip] = {"count": 0, "date": today}
-        entry = _rate_data[ip]
-    if entry["count"] >= RATE_LIMIT_PER_IP:
-        raise HTTPException(status_code=429, detail=f"Лимит {RATE_LIMIT_PER_IP} AI-запросов в день с вашего IP исчерпан.")
-
-    entry["count"] += 1
-    _global_rate["count"] += 1
-
-
-# ─────────────────────────────────────────────────────────
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "shopspy.db")
@@ -270,11 +237,8 @@ def analyze_discount(history: list[dict]) -> dict:
 # ── AI Review Analysis ────────────────────────────────────
 
 @app.post("/api/reviews/analyze")
-async def analyze_reviews(req: ReviewsRequest, request: Request):
+async def analyze_reviews(req: ReviewsRequest):
     """AI-анализ отзывов через Gemini (бесплатно) или Claude API."""
-    ip = request.headers.get("x-forwarded-for", request.client.host).split(",")[0].strip()
-    _check_rate_limit(ip)
-
     provider, api_key = get_llm_key()
 
     if not provider:
@@ -370,8 +334,44 @@ async def _call_gemini(api_key: str, prompt: str) -> dict:
             }
         })
         data = resp.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Обработка ошибок от Gemini
+        if "error" in data:
+            raise Exception(f"Gemini API: {data['error'].get('message', str(data['error']))}")
+
+        if "candidates" not in data:
+            raise Exception(f"Gemini: неожиданный ответ: {json.dumps(data, ensure_ascii=False)[:300]}")
+
+        candidate = data["candidates"][0]
+
+        # Проверка на блокировку контента
+        if candidate.get("finishReason") == "SAFETY":
+            return {
+                "pros": ["Не удалось проанализировать"],
+                "cons": ["Gemini заблокировал запрос по соображениям безопасности"],
+                "verdict": "Попробуйте другой товар",
+                "rating_honest": None,
+                "buy_recommendation": "unknown"
+            }
+
+        text = candidate["content"]["parts"][0]["text"]
         return _parse_llm_response(text)
+
+
+@app.get("/api/debug/gemini")
+async def debug_gemini():
+    """Проверка работы Gemini API."""
+    _, api_key = get_llm_key()
+    if not api_key:
+        return {"error": "GEMINI_API_KEY не задан"}
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(url, json={
+            "contents": [{"parts": [{"text": "Ответь одним словом: работает?"}]}]
+        })
+        return {"status_code": resp.status_code, "response": resp.json()}
+
 
 
 async def _call_claude(api_key: str, prompt: str) -> dict:

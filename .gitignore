@@ -7,3 +7,6 @@ data/
 .env
 .venv/
 venv/
+.claude/
+.vscode/
+*.swp
