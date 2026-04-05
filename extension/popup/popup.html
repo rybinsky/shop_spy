@@ -113,31 +113,28 @@
     </div>
   </div>
 
-  <a href="http://localhost:8000" target="_blank" class="link-btn">
+  <a href="https://shop-spy.onrender.com" target="_blank" class="link-btn">
     📊 Открыть дашборд
-  </a>
-  <a href="http://localhost:8000/docs" target="_blank" class="link-btn">
-    📖 API документация
   </a>
 
   <div class="footer">
-    Откройте любой товар на WB или Ozon<br>
-    для автоматического сбора данных
+    Откройте любой товар на WB или Ozon -<br>
+    ShopSpy автоматически соберет данные
   </div>
 
   <script>
     async function checkBackend() {
       const statusEl = document.getElementById('status');
       try {
-        const resp = await fetch('http://localhost:8000/api/stats');
+        const resp = await fetch('https://shop-spy.onrender.com/api/stats');
         const data = await resp.json();
         statusEl.className = 'status ok';
-        statusEl.innerHTML = '<span class="status-dot"></span> Бэкенд работает';
+        statusEl.innerHTML = '<span class="status-dot"></span> Сервер работает';
         document.getElementById('stat-products').textContent = data.unique_products || 0;
         document.getElementById('stat-records').textContent = data.total_records || 0;
       } catch (e) {
         statusEl.className = 'status error';
-        statusEl.innerHTML = '<span class="status-dot"></span> Бэкенд недоступен. Запустите python backend/main.py';
+        statusEl.innerHTML = '<span class="status-dot"></span> Сервер просыпается... подождите 30 сек';
       }
     }
     checkBackend();
