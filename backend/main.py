@@ -74,9 +74,13 @@ def _check_rate_limit(ip: str):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "shopspy.db")
 CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDqLaNUl8xf94CAvvb-7ueQFJTFN_dcWDE")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MAX_TOKENS = int(os.environ.get("GEMINI_MAX_TOKENS", "4000"))
+GEMINI_TEMPERATURE = float(os.environ.get("GEMINI_TEMPERATURE", "0.3"))
+GEMINI_THINKING_BUDGET = int(os.environ.get("GEMINI_THINKING_BUDGET", "0"))  # 0 = отключить thinking
 
 def get_llm_key():
     """Возвращает (provider, key). Gemini приоритетнее - он бесплатный."""
@@ -415,19 +419,27 @@ def _parse_llm_response(text: str) -> dict:
 
 async def _call_gemini(api_key: str, prompt: str) -> dict:
     """Вызов Google Gemini API (бесплатный)."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
-    print("SBVIBIBSUVISBVIUBV")
-    async with httpx.AsyncClient(timeout=30) as client:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": GEMINI_TEMPERATURE,
+            "maxOutputTokens": GEMINI_MAX_TOKENS
+        }
+    }
+    
+    # Добавляем thinking config только если budget > 0
+    if GEMINI_THINKING_BUDGET > 0:
+        payload["generationConfig"]["thinkingConfig"] = {
+            "thinkingBudget": GEMINI_THINKING_BUDGET
+        }
+    
+    async with httpx.AsyncClient(timeout=60) as client:
         logger.info("="*60)
-        logger.info("CALLING GEMINI API...")
+        logger.info(f"CALLING GEMINI API (model={GEMINI_MODEL}, max_tokens={GEMINI_MAX_TOKENS})...")
         
-        resp = await client.post(url, json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 1000
-            }
-        })
+        resp = await client.post(url, json=payload)
         data = resp.json()
         
         logger.info("="*60)
@@ -446,6 +458,7 @@ async def _call_gemini(api_key: str, prompt: str) -> dict:
         
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return _parse_llm_response(text)
+
 
 
 
