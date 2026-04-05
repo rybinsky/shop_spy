@@ -361,13 +361,16 @@ def _parse_llm_response(text: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
-        # Логируем для отладки
-        print(f"JSON decode error: {e}")
-        print(f"Text preview: {text[:300]}...")
+        # Логируем ошибку и полный текст от LLM
+        print(f"\n{'='*60}")
+        print(f"JSON DECODE ERROR: {e}")
+        print(f"{'='*60}")
+        print(f"FULL RAW TEXT FROM LLM:")
+        print(text)
+        print(f"{'='*60}\n")
         
         # Пытаемся починить обрезанный JSON
         if "Unterminated string" in str(e):
-            # Пробуем закрыть строку и структуру
             pos = getattr(e, 'pos', len(text))
             fixed = text[:pos] + '"'
             
@@ -376,14 +379,21 @@ def _parse_llm_response(text: str) -> dict:
             open_brackets = fixed.count('[') - fixed.count(']')
             fixed += ']' * open_brackets + '}' * open_braces
             
+            print(f"Attempting to repair JSON (closing string at pos {pos})...")
+            
             try:
-                return json.loads(fixed)
-            except:
-                pass
+                result = json.loads(fixed)
+                print(f"JSON REPAIRED SUCCESSFULLY!")
+                return result
+            except Exception as fix_err:
+                print(f"Failed to repair JSON: {fix_err}")
         
         # Извлекаем данные через regex как fallback
+        print(f"Using regex fallback extraction...")
         verdict_match = re.search(r'"verdict"\s*:\s*"([^"]*)"', text)
         rating_match = re.search(r'"rating_honest"\s*:\s*([\d.]+)', text)
+        print(f"  extracted verdict: {verdict_match.group(1) if verdict_match else 'NOT FOUND'}")
+        print(f"  extracted rating: {rating_match.group(1) if rating_match else 'NOT FOUND'}")
         
         return {
             "pros": [],
@@ -392,6 +402,7 @@ def _parse_llm_response(text: str) -> dict:
             "rating_honest": float(rating_match.group(1)) if rating_match else None,
             "buy_recommendation": "unknown"
         }
+
 
 
 
