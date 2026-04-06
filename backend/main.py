@@ -7,6 +7,7 @@ import os
 import json
 import sqlite3
 import hashlib
+import asyncio
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional
@@ -20,6 +21,11 @@ import httpx
 import uvicorn
 import logging
 
+try:
+    from backend.crawler import crawl_loop, crawl_once
+except ImportError:
+    from crawler import crawl_loop, crawl_once
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -28,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="ShopSpy API", version="0.1.0")
+app = FastAPI(title="ShopSpy API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,24 +46,22 @@ app.add_middleware(
 
 # ── Rate limiting ─────────────────────────────────────────
 
-RATE_LIMIT_PER_IP = int(os.environ.get("RATE_LIMIT_PER_IP", 10))   # запросов/день с одного IP
-RATE_LIMIT_GLOBAL = int(os.environ.get("RATE_LIMIT_GLOBAL", 200))  # запросов/день всего
+RATE_LIMIT_PER_IP = int(os.environ.get("RATE_LIMIT_PER_IP", 10))
+RATE_LIMIT_GLOBAL = int(os.environ.get("RATE_LIMIT_GLOBAL", 200))
 
-_rate_data: dict[str, dict] = {}  # { ip: {count, date} }
+_rate_data: dict[str, dict] = {}
 _global_rate: dict = {"count": 0, "date": None}
 
 
 def _check_rate_limit(ip: str):
     today = datetime.now().date().isoformat()
 
-    # Глобальный лимит
     if _global_rate["date"] != today:
         _global_rate["count"] = 0
         _global_rate["date"] = today
     if _global_rate["count"] >= RATE_LIMIT_GLOBAL:
         raise HTTPException(status_code=429, detail="Глобальный дневной лимит AI-запросов исчерпан. Попробуйте завтра.")
 
-    # Лимит по IP
     entry = _rate_data.get(ip)
     if not entry or entry["date"] != today:
         _rate_data[ip] = {"count": 0, "date": today}
@@ -80,7 +84,7 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_MAX_TOKENS = int(os.environ.get("GEMINI_MAX_TOKENS", "4000"))
 GEMINI_TEMPERATURE = float(os.environ.get("GEMINI_TEMPERATURE", "0.3"))
-GEMINI_THINKING_BUDGET = int(os.environ.get("GEMINI_THINKING_BUDGET", "0"))  # 0 = отключить thinking
+GEMINI_THINKING_BUDGET = int(os.environ.get("GEMINI_THINKING_BUDGET", "0"))
 
 def get_llm_key():
     """Возвращает (provider, key). Gemini приоритетнее - он бесплатный."""
@@ -147,7 +151,7 @@ init_db()
 # ── Models ────────────────────────────────────────────────
 
 class PriceRecord(BaseModel):
-    platform: str  # "wb" | "ozon" | "yandex"
+    platform: str
     product_id: str
     product_name: Optional[str] = None
     price: float
@@ -159,7 +163,7 @@ class ReviewsRequest(BaseModel):
     platform: str
     product_id: str
     product_name: str
-    reviews: list[str]  # список текстов отзывов
+    reviews: list[str]
 
 
 class CompareRequest(BaseModel):
@@ -172,7 +176,6 @@ class CompareRequest(BaseModel):
 def record_price(record: PriceRecord):
     """Расширение отправляет текущую цену товара."""
     with get_db() as db:
-        # Не записываем дубликат если цена не изменилась за последний час
         last = db.execute(
             """SELECT price FROM prices
                WHERE platform=? AND product_id=?
@@ -181,7 +184,6 @@ def record_price(record: PriceRecord):
         ).fetchone()
 
         if last and abs(last["price"] - record.price) < 0.01:
-            # Проверяем давность последней записи
             last_time = db.execute(
                 """SELECT recorded_at FROM prices
                    WHERE platform=? AND product_id=?
@@ -224,9 +226,7 @@ def get_price_history(platform: str, product_id: str):
         for r in rows
     ]
 
-    # Анализ фейковой скидки
     analysis = analyze_discount(history)
-
     return {"history": history, "analysis": analysis}
 
 
@@ -241,7 +241,6 @@ def analyze_discount(history: list[dict]) -> dict:
     min_price = min(prices)
     max_price = max(prices)
 
-    # Проверяем был ли резкий рост перед текущей "скидкой"
     if len(prices) >= 3:
         recent_max = max(prices[-5:]) if len(prices) >= 5 else max(prices)
         if recent_max > avg_price * 1.3 and current <= avg_price:
@@ -294,13 +293,12 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
             "summary": {
                 "pros": ["API ключ не настроен"],
                 "cons": ["Получите бесплатный ключ на ai.google.dev"],
-                "verdict": "Добавьте GEMINI_API_KEY (бесплатно, без карты) в переменные окружения на Render",
+                "verdict": "Добавьте GEMINI_API_KEY в переменные окружения на Render",
                 "rating_honest": None,
                 "buy_recommendation": "unknown"
             }
         }
 
-    # Проверяем кэш
     with get_db() as db:
         cached = db.execute(
             """SELECT summary FROM reviews_cache
@@ -313,7 +311,6 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
     if cached:
         return {"summary": json.loads(cached["summary"])}
 
-    # Берем до 30 отзывов для анализа
     reviews_text = "\n---\n".join(req.reviews[:30])
 
     prompt = f"""Проанализируй отзывы покупателей на товар "{req.product_name}".
@@ -347,7 +344,6 @@ async def analyze_reviews(req: ReviewsRequest, request: Request):
             "buy_recommendation": "unknown"
         }
 
-    # Кэшируем
     with get_db() as db:
         db.execute(
             "INSERT INTO reviews_cache (platform, product_id, summary) VALUES (?, ?, ?)",
@@ -362,7 +358,6 @@ def _parse_llm_response(text: str) -> dict:
     import re
     
     text = text.strip()
-    # Убираем ```json ... ```
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
     if text.endswith("```"):
@@ -372,39 +367,25 @@ def _parse_llm_response(text: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
-        # Логируем ошибку и полный текст от LLM
-        print(f"\n{'='*60}")
-        print(f"JSON DECODE ERROR: {e}")
-        print(f"{'='*60}")
-        print(f"FULL RAW TEXT FROM LLM:")
-        print(text)
-        print(f"{'='*60}\n")
+        logger.error(f"JSON DECODE ERROR: {e}")
+        logger.error(f"RAW TEXT: {text[:500]}")
         
-        # Пытаемся починить обрезанный JSON
         if "Unterminated string" in str(e):
             pos = getattr(e, 'pos', len(text))
             fixed = text[:pos] + '"'
-            
-            # Считаем и закрываем открытые скобки
             open_braces = fixed.count('{') - fixed.count('}')
             open_brackets = fixed.count('[') - fixed.count(']')
             fixed += ']' * open_brackets + '}' * open_braces
             
-            print(f"Attempting to repair JSON (closing string at pos {pos})...")
-            
             try:
                 result = json.loads(fixed)
-                print(f"JSON REPAIRED SUCCESSFULLY!")
+                logger.info("JSON repaired successfully")
                 return result
-            except Exception as fix_err:
-                print(f"Failed to repair JSON: {fix_err}")
+            except Exception:
+                pass
         
-        # Извлекаем данные через regex как fallback
-        print(f"Using regex fallback extraction...")
         verdict_match = re.search(r'"verdict"\s*:\s*"([^"]*)"', text)
         rating_match = re.search(r'"rating_honest"\s*:\s*([\d.]+)', text)
-        print(f"  extracted verdict: {verdict_match.group(1) if verdict_match else 'NOT FOUND'}")
-        print(f"  extracted rating: {rating_match.group(1) if rating_match else 'NOT FOUND'}")
         
         return {
             "pros": [],
@@ -413,8 +394,6 @@ def _parse_llm_response(text: str) -> dict:
             "rating_honest": float(rating_match.group(1)) if rating_match else None,
             "buy_recommendation": "unknown"
         }
-
-
 
 
 async def _call_gemini(api_key: str, prompt: str) -> dict:
@@ -429,37 +408,50 @@ async def _call_gemini(api_key: str, prompt: str) -> dict:
         }
     }
     
-    # Добавляем thinking config только если budget > 0
     if GEMINI_THINKING_BUDGET > 0:
         payload["generationConfig"]["thinkingConfig"] = {
             "thinkingBudget": GEMINI_THINKING_BUDGET
         }
     
     async with httpx.AsyncClient(timeout=60) as client:
-        logger.info("="*60)
-        logger.info(f"CALLING GEMINI API (model={GEMINI_MODEL}, max_tokens={GEMINI_MAX_TOKENS})...")
-        
+        logger.info(f"Calling Gemini API (model={GEMINI_MODEL})...")
         resp = await client.post(url, json=payload)
         data = resp.json()
-        
-        logger.info("="*60)
-        logger.info(f"GEMINI API RESPONSE Status: {resp.status_code}")
-        logger.info(f"GEMINI API RESPONSE Data: {data}")
-        logger.info("="*60)
-        
-        # Проверяем на ошибку
+
         if "error" in data:
-            logger.error(f"Gemini API error: {data['error']}")
-            raise Exception(f"Gemini API error: {data['error']}")
-        
+            raise Exception(f"Gemini API: {data['error'].get('message', str(data['error']))}")
+
         if "candidates" not in data:
-            logger.error(f"No candidates in response: {data}")
-            raise Exception(f"No candidates in response: {data}")
-        
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+            raise Exception(f"Gemini: неожиданный ответ: {json.dumps(data, ensure_ascii=False)[:300]}")
+
+        candidate = data["candidates"][0]
+
+        if candidate.get("finishReason") == "SAFETY":
+            return {
+                "pros": ["Не удалось проанализировать"],
+                "cons": ["Gemini заблокировал запрос по соображениям безопасности"],
+                "verdict": "Попробуйте другой товар",
+                "rating_honest": None,
+                "buy_recommendation": "unknown"
+            }
+
+        text = candidate["content"]["parts"][0]["text"]
         return _parse_llm_response(text)
 
 
+@app.get("/api/debug/gemini")
+async def debug_gemini():
+    """Проверка работы Gemini API."""
+    _, api_key = get_llm_key()
+    if not api_key:
+        return {"error": "GEMINI_API_KEY не задан"}
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(url, json={
+            "contents": [{"parts": [{"text": "Ответь одним словом: работает?"}]}]
+        })
+        return {"status_code": resp.status_code, "response": resp.json()}
 
 
 async def _call_claude(api_key: str, prompt: str) -> dict:
@@ -541,6 +533,21 @@ def get_tracked_products(limit: int = 50):
     }
 
 
+# ── Crawler ───────────────────────────────────────────────
+
+@app.on_event("startup")
+async def startup_event():
+    """Запускаем фоновый краулер при старте сервера."""
+    asyncio.create_task(crawl_loop())
+
+
+@app.post("/api/crawl")
+async def trigger_crawl():
+    """Ручной запуск обхода цен."""
+    asyncio.create_task(crawl_once())
+    return {"status": "started", "message": "Обход запущен в фоне"}
+
+
 # ── Dashboard ─────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -562,6 +569,8 @@ if __name__ == "__main__":
     print(f"  API docs:  http://localhost:{port}/docs")
     provider, key = get_llm_key()
     ai_status = f"Gemini (бесплатный)" if provider == "gemini" else f"Claude" if provider == "claude" else "НЕ настроен (добавьте GEMINI_API_KEY)"
-    print(f"  Claude AI: {ai_status}")
+    print(f"  AI: {ai_status}")
+    crawl_h = int(os.environ.get('CRAWL_INTERVAL', 21600)) // 3600
+    print(f"  Краулер: каждые {crawl_h} ч.")
     print("=" * 50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=port)
