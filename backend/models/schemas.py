@@ -144,6 +144,50 @@ class TelegramStatusResponse(BaseModel):
     is_active: Optional[bool] = None
 
 
+class TelegramAuthRequest(BaseModel):
+    """Request model for Telegram Login Widget authentication."""
+
+    id: int = Field(..., description="Telegram user ID")
+    first_name: Optional[str] = Field(None, description="User's first name")
+    last_name: Optional[str] = Field(None, description="User's last name")
+    username: Optional[str] = Field(None, description="Telegram username")
+    photo_url: Optional[str] = Field(None, description="User's profile photo URL")
+    hash: str = Field(..., description="Authentication hash from Telegram")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 123456789,
+                "first_name": "John",
+                "last_name": "Doe",
+                "username": "johndoe",
+                "photo_url": "https://t.me/i/userpic/320/abc123.jpg",
+                "hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            }
+        }
+
+
+class AuthResponse(BaseModel):
+    """Response model for authentication."""
+
+    status: str = "ok"
+    telegram_id: int
+    username: Optional[str] = None
+    session_token: Optional[str] = None
+
+
+class UserInfoResponse(BaseModel):
+    """Response model for user info."""
+
+    telegram_id: int
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    photo_url: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[str] = None
+
+
 # ─────────────────────────────────────────────────────────────
 # Alert Models
 # ─────────────────────────────────────────────────────────────

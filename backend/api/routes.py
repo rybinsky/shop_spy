@@ -4,6 +4,8 @@ ShopSpy - API Routes
 FastAPI routes for price tracking, alerts, and AI analysis.
 """
 
+import hashlib
+import hmac
 import logging
 from typing import Optional
 
@@ -12,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from backend.config import config
 from backend.db import AlertsRepository, PricesRepository, UsersRepository, get_database
 from backend.models.schemas import (
+    AuthResponse,
     ErrorResponse,
     PriceAlertCreate,
     PriceAlertItem,
@@ -27,8 +30,10 @@ from backend.models.schemas import (
     ReviewSummary,
     StatsResponse,
     SuccessResponse,
+    TelegramAuthRequest,
     TelegramRegisterRequest,
     TelegramStatusResponse,
+    UserInfoResponse,
 )
 from backend.services.ai_analyzer import AIAnalyzer
 from backend.services.price_analyzer import PriceAnalyzer
@@ -107,6 +112,40 @@ def check_rate_limit(request: Request) -> None:
 
     entry["count"] += 1
     _global_rate["count"] += 1
+
+
+# ─────────────────────────────────────────────────────────────
+# Telegram Auth Helpers
+# ─────────────────────────────────────────────────────────────
+
+
+def verify_telegram_auth(auth_data: dict, bot_token: str) -> bool:
+    """
+    Verify Telegram Login Widget authentication hash.
+
+    Args:
+        auth_data: Dictionary with Telegram auth data (including 'hash')
+        bot_token: Telegram bot token
+
+    Returns:
+        True if hash is valid, False otherwise
+    """
+    # 1. Remove hash from data
+    data = {k: v for k, v in auth_data.items() if k != "hash" and v is not None}
+
+    # 2. Sort keys and create data_check_string
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
+
+    # 3. Create secret_key = SHA256(bot_token)
+    secret_key = hashlib.sha256(bot_token.encode()).digest()
+
+    # 4. Compute hash = HMAC_SHA256(secret_key, data_check_string)
+    computed_hash = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
+
+    # 5. Compare
+    return computed_hash == auth_data["hash"]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -248,6 +287,101 @@ def telegram_status(
             linked=True, is_active=user.get("is_active", False)
         )
     return TelegramStatusResponse(linked=False)
+
+
+# ─────────────────────────────────────────────────────────────
+# Auth Routes (Telegram Login Widget)
+# ─────────────────────────────────────────────────────────────
+
+
+@api_router.post("/auth/telegram", response_model=AuthResponse)
+def telegram_auth(
+    data: TelegramAuthRequest,
+    users: UsersRepository = Depends(get_users_repo),
+):
+    """
+    Authenticate user via Telegram Login Widget.
+
+    Validates the hash from Telegram and creates/updates the user.
+    Returns a session token (telegram_id).
+    """
+    if not config.telegram.enabled or not config.telegram.bot_token:
+        logger.warning("Telegram auth attempted but bot not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Telegram авторизация не настроена",
+        )
+
+    # Prepare auth data for verification
+    auth_data = {
+        "id": data.id,
+        "first_name": data.first_name,
+        "last_name": data.last_name,
+        "username": data.username,
+        "photo_url": data.photo_url,
+        "hash": data.hash,
+    }
+
+    # Verify hash
+    if not verify_telegram_auth(auth_data, config.telegram.bot_token):
+        logger.warning(f"Invalid Telegram auth hash for user {data.id}")
+        raise HTTPException(
+            status_code=401,
+            detail="Неверная подпись Telegram",
+        )
+
+    logger.info(f"Telegram auth verified for user {data.id}")
+
+    # Save/update user
+    success = users.save_user_from_telegram_auth(
+        telegram_id=data.id,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        username=data.username,
+        photo_url=data.photo_url,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка при сохранении пользователя",
+        )
+
+    return AuthResponse(
+        status="ok",
+        telegram_id=data.id,
+        username=data.username,
+        session_token=str(data.id),  # Simple session token = telegram_id
+    )
+
+
+@api_router.get("/auth/me", response_model=UserInfoResponse)
+def get_current_user(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    users: UsersRepository = Depends(get_users_repo),
+):
+    """
+    Get current authenticated user info.
+
+    Uses telegram_id from query parameter for authentication.
+    """
+    user = users.get_user_by_telegram_id(telegram_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="Пользователь не найден",
+        )
+
+    return UserInfoResponse(
+        telegram_id=user["chat_id"],
+        username=user.get("username"),
+        first_name=user.get("first_name"),
+        last_name=user.get("last_name"),
+        photo_url=user.get("photo_url"),
+        is_active=bool(user.get("is_active", True)),
+        created_at=str(user.get("created_at")) if user.get("created_at") else None,
+    )
 
 
 # ─────────────────────────────────────────────────────────────

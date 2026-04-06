@@ -1,15 +1,491 @@
-async function checkBackend() {
-  const statusEl = document.getElementById('status');
-  try {
-    const resp = await fetch('https://shop-spy.onrender.com/api/stats');
-    const data = await resp.json();
-    statusEl.className = 'status ok';
-    statusEl.innerHTML = '<span class="status-dot"></span> Сервер работает';
-    document.getElementById('stat-products').textContent = data.unique_products || 0;
-    document.getElementById('stat-records').textContent = data.total_records || 0;
-  } catch (e) {
-    statusEl.className = 'status error';
-    statusEl.innerHTML = '<span class="status-dot"></span> Сервер просыпается... подождите 30 сек';
+/**
+ * ShopSpy Popup - Управление отслеживанием товаров
+ */
+
+const API_BASE = "https://shop-spy.onrender.com";
+
+// Состояние приложения
+const state = {
+  user: null,
+  currentProduct: null,
+  trackedProducts: [],
+  isLoading: true,
+};
+
+// DOM элементы
+const elements = {};
+
+// Инициализация DOM элементов
+function initElements() {
+  elements.loader = document.getElementById("loader");
+  elements.authSection = document.getElementById("auth-section");
+  elements.userSection = document.getElementById("user-section");
+  elements.userAvatar = document.getElementById("user-avatar");
+  elements.userName = document.getElementById("user-name");
+  elements.logoutBtn = document.getElementById("logout-btn");
+  elements.loginBtn = document.getElementById("login-btn");
+  elements.productSection = document.getElementById("product-section");
+  elements.productPlatform = document.getElementById("product-platform");
+  elements.productName = document.getElementById("product-name");
+  elements.productPrice = document.getElementById("product-price");
+  elements.productPriceOld = document.getElementById("product-price-old");
+  elements.trackBtn = document.getElementById("track-btn");
+  elements.trackBtnIcon = document.getElementById("track-btn-icon");
+  elements.trackBtnText = document.getElementById("track-btn-text");
+  elements.notMarketplaceSection = document.getElementById(
+    "not-marketplace-section",
+  );
+  elements.trackedSection = document.getElementById("tracked-section");
+  elements.trackedList = document.getElementById("tracked-list");
+  elements.trackedEmpty = document.getElementById("tracked-empty");
+  elements.errorContainer = document.getElementById("error-container");
+  elements.errorMsg = document.getElementById("error-msg");
+}
+
+// Показать/скрыть элемент
+function show(el) {
+  if (el) el.classList.remove("hidden");
+}
+
+function hide(el) {
+  if (el) el.classList.add("hidden");
+}
+
+// Показать ошибку
+function showError(message) {
+  if (elements.errorMsg) {
+    elements.errorMsg.textContent = message;
+    show(elements.errorContainer);
+    setTimeout(() => hide(elements.errorContainer), 5000);
   }
 }
-checkBackend();
+
+// Загрузка пользователя из хранилища
+function loadUser() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      ["telegram_id", "telegram_username", "telegram_photo"],
+      (result) => {
+        if (result.telegram_id) {
+          resolve({
+            id: result.telegram_id,
+            username: result.telegram_username || "User",
+            photo: result.telegram_photo || "",
+          });
+        } else {
+          resolve(null);
+        }
+      },
+    );
+  });
+}
+
+// Сохранение пользователя в хранилище
+function saveUser(user) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(
+      {
+        telegram_id: user.id,
+        telegram_username: user.username,
+        telegram_photo: user.photo,
+      },
+      resolve,
+    );
+  });
+}
+
+// Удаление пользователя из хранилища
+function clearUser() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove(
+      ["telegram_id", "telegram_username", "telegram_photo"],
+      resolve,
+    );
+  });
+}
+
+// Определение текущего товара из URL
+function getCurrentProduct() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (!tabs || !tabs[0]) {
+        resolve(null);
+        return;
+      }
+
+      const tab = tabs[0];
+      const url = tab.url || "";
+
+      // Wildberries паттерны
+      const wbPatterns = [
+        /wildberries\.ru\/catalog\/(\d+)\/detail\.aspx/i,
+        /wildberries\.ru\/catalog\/(\d+)/i,
+        /www\.wildberries\.ru\/catalog\/(\d+)/i,
+      ];
+
+      // Ozon паттерны
+      const ozonPatterns = [
+        /ozon\.ru\/product\/[^\/]*-(\d+)\/?/i,
+        /ozon\.ru\/context\/detail\/id\/(\d+)/i,
+        /www\.ozon\.ru\/product\/[^\/]*-(\d+)\/?/i,
+      ];
+
+      // Проверка WB
+      for (const pattern of wbPatterns) {
+        const match = url.match(pattern);
+        if (match) {
+          const productId = match[1];
+          const product = await fetchProductInfo("wb", productId, url);
+          resolve(product);
+          return;
+        }
+      }
+
+      // Проверка Ozon
+      for (const pattern of ozonPatterns) {
+        const match = url.match(pattern);
+        if (match) {
+          const productId = match[1];
+          const product = await fetchProductInfo("ozon", productId, url);
+          resolve(product);
+          return;
+        }
+      }
+
+      resolve(null);
+    });
+  });
+}
+
+// Получение информации о товаре из API
+async function fetchProductInfo(platform, productId, url) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/price/history?platform=${platform}&product_id=${productId}`,
+    );
+    const data = await response.json();
+
+    if (data.history && data.history.length > 0) {
+      const latest = data.history[data.history.length - 1];
+      return {
+        platform: platform,
+        productId: productId,
+        name: latest.product_name || `Товар ${productId}`,
+        price: latest.price,
+        originalPrice: latest.original_price,
+        url: url,
+      };
+    }
+
+    return {
+      platform: platform,
+      productId: productId,
+      name: `Товар ${productId}`,
+      price: null,
+      originalPrice: null,
+      url: url,
+    };
+  } catch (e) {
+    console.error("Error fetching product info:", e);
+    return {
+      platform: platform,
+      productId: productId,
+      name: `Товар ${productId}`,
+      price: null,
+      originalPrice: null,
+      url: url,
+    };
+  }
+}
+
+// Загрузка отслеживаемых товаров
+async function loadTrackedProducts(chatId) {
+  try {
+    const response = await fetch(`${API_BASE}/api/alerts?chat_id=${chatId}`);
+    const data = await response.json();
+    return data.alerts || [];
+  } catch (e) {
+    console.error("Error loading tracked products:", e);
+    return [];
+  }
+}
+
+// Добавление товара в отслеживание
+async function trackProduct() {
+  if (!state.user || !state.currentProduct) return;
+
+  const product = state.currentProduct;
+
+  try {
+    elements.trackBtn.disabled = true;
+    elements.trackBtnText.textContent = "Добавление...";
+
+    const response = await fetch(`${API_BASE}/api/alerts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: state.user.id,
+        platform: product.platform,
+        product_id: product.productId,
+        product_name: product.name,
+        url: product.url,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.status === "ok") {
+      state.trackedProducts.push({
+        platform: product.platform,
+        product_id: product.productId,
+        product_name: product.name,
+        last_price: product.price,
+      });
+      renderUI();
+    } else {
+      showError(data.message || "Ошибка при добавлении");
+    }
+  } catch (e) {
+    console.error("Error tracking product:", e);
+    showError("Ошибка соединения");
+  } finally {
+    elements.trackBtn.disabled = false;
+  }
+}
+
+// Удаление товара из отслеживания
+async function untrackProduct(platform, productId) {
+  if (!state.user) return;
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/alerts?chat_id=${state.user.id}&platform=${platform}&product_id=${productId}`,
+      { method: "DELETE" },
+    );
+
+    const data = await response.json();
+
+    if (data.status === "ok") {
+      state.trackedProducts = state.trackedProducts.filter(
+        (p) => !(p.platform === platform && p.product_id === productId),
+      );
+      renderUI();
+    }
+  } catch (e) {
+    console.error("Error untracking product:", e);
+    showError("Ошибка при удалении");
+  }
+}
+
+// Проверка, отслеживается ли товар
+function isProductTracked(platform, productId) {
+  return state.trackedProducts.some(
+    (p) => p.platform === platform && p.product_id === productId,
+  );
+}
+
+// Рендер UI
+function renderUI() {
+  hide(elements.loader);
+
+  if (state.user) {
+    hide(elements.authSection);
+    show(elements.userSection);
+
+    if (state.user.photo) {
+      elements.userAvatar.src = state.user.photo;
+    } else {
+      elements.userAvatar.src =
+        'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e94560"/><text y="60" x="50" text-anchor="middle" font-size="40" fill="white">?</text></svg>';
+    }
+    elements.userName.textContent = state.user.username;
+  } else {
+    hide(elements.userSection);
+    show(elements.authSection);
+  }
+
+  if (state.user && state.currentProduct) {
+    hide(elements.notMarketplaceSection);
+    show(elements.productSection);
+
+    const product = state.currentProduct;
+    elements.productPlatform.textContent =
+      product.platform === "wb" ? "Wildberries" : "Ozon";
+    elements.productPlatform.className = "product-platform " + product.platform;
+    elements.productName.textContent = product.name;
+    elements.productPrice.textContent = product.price
+      ? product.price.toLocaleString("ru")
+      : "—";
+
+    if (product.originalPrice && product.originalPrice > product.price) {
+      elements.productPriceOld.textContent =
+        product.originalPrice.toLocaleString("ru") + " ₽";
+      show(elements.productPriceOld);
+    } else {
+      hide(elements.productPriceOld);
+    }
+
+    const isTracked = isProductTracked(product.platform, product.productId);
+    if (isTracked) {
+      elements.trackBtn.className = "btn btn-tracked";
+      elements.trackBtnIcon.textContent = "✓";
+      elements.trackBtnText.textContent = "Отслеживается";
+    } else {
+      elements.trackBtn.className = "btn btn-primary";
+      elements.trackBtnIcon.textContent = "👁️";
+      elements.trackBtnText.textContent = "Отслеживать";
+    }
+  } else if (state.user) {
+    hide(elements.productSection);
+    show(elements.notMarketplaceSection);
+  } else {
+    hide(elements.productSection);
+    hide(elements.notMarketplaceSection);
+  }
+
+  if (state.user) {
+    show(elements.trackedSection);
+    renderTrackedProducts();
+  } else {
+    hide(elements.trackedSection);
+  }
+}
+
+// Рендер списка отслеживаемых товаров
+function renderTrackedProducts() {
+  if (state.trackedProducts.length === 0) {
+    hide(elements.trackedList);
+    show(elements.trackedEmpty);
+    return;
+  }
+
+  hide(elements.trackedEmpty);
+  show(elements.trackedList);
+
+  let html = "";
+  for (const product of state.trackedProducts) {
+    const platformIcon = product.platform === "wb" ? "🟣" : "🔵";
+    const priceText = product.last_price
+      ? product.last_price.toLocaleString("ru") + " ₽"
+      : "—";
+    const name = product.product_name || `Товар ${product.product_id}`;
+    const shortName = name.length > 35 ? name.substring(0, 35) + "..." : name;
+
+    html += `<div class="tracked-item">`;
+    html += `<div class="tracked-item-platform ${product.platform}">${platformIcon}</div>`;
+    html += `<div class="tracked-item-info">`;
+    html += `<div class="tracked-item-name">${escapeHtml(shortName)}</div>`;
+    html += `<div class="tracked-item-price">${priceText}</div>`;
+    html += `</div>`;
+    html += `<button class="tracked-item-delete" data-platform="${product.platform}" data-id="${product.product_id}">×</button>`;
+    html += `</div>`;
+  }
+
+  elements.trackedList.innerHTML = html;
+
+  const deleteButtons = elements.trackedList.querySelectorAll(
+    ".tracked-item-delete",
+  );
+  deleteButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const platform = btn.dataset.platform;
+      const productId = btn.dataset.id;
+      untrackProduct(platform, productId);
+    });
+  });
+}
+
+// Экранирование HTML
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Показать модальное окно для ввода Chat ID
+function showChatIdModal() {
+  const chatId = prompt(
+    "Введите ваш Telegram Chat ID:\n\n" +
+      "1. Откройте бота @shopspy_bot в Telegram\n" +
+      "2. Отправьте команду /start\n" +
+      "3. Бот пришлёт ваш Chat ID\n\n" +
+      "Введите полученное число:",
+  );
+
+  if (chatId) {
+    const id = parseInt(chatId.trim(), 10);
+    if (isNaN(id) || id <= 0) {
+      showError("Неверный формат Chat ID. Введите число.");
+      return;
+    }
+
+    const user = {
+      id: id,
+      username: `User ${id}`,
+      photo: "",
+    };
+
+    saveUser(user);
+    state.user = user;
+
+    // Проверяем пользователя на сервере
+    verifyUser(id);
+  }
+}
+
+// Проверка пользователя на сервере
+async function verifyUser(telegramId) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/telegram/status?chat_id=${telegramId}`,
+    );
+    const data = await response.json();
+
+    if (data.linked) {
+      state.trackedProducts = await loadTrackedProducts(telegramId);
+      renderUI();
+    } else {
+      // Пользователь ещё не писал боту
+      showError("Сначала напишите /start боту @shopspy_bot в Telegram!");
+    }
+  } catch (e) {
+    console.error("Error verifying user:", e);
+    // Всё равно показываем UI, возможно сервер недоступен
+    renderUI();
+  }
+}
+
+// Выход
+async function logout() {
+  await clearUser();
+  state.user = null;
+  state.trackedProducts = [];
+  renderUI();
+}
+
+// Инициализация
+async function init() {
+  initElements();
+
+  state.user = await loadUser();
+
+  if (state.user) {
+    state.trackedProducts = await loadTrackedProducts(state.user.id);
+  }
+
+  state.currentProduct = await getCurrentProduct();
+
+  renderUI();
+
+  if (elements.loginBtn) {
+    elements.loginBtn.addEventListener("click", showChatIdModal);
+  }
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener("click", logout);
+  }
+  if (elements.trackBtn) {
+    elements.trackBtn.addEventListener("click", trackProduct);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);

@@ -136,6 +136,9 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chat_id INTEGER UNIQUE NOT NULL,
                 username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                photo_url TEXT,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

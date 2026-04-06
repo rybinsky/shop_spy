@@ -12,6 +12,25 @@ from backend.db.database import Database
 logger = logging.getLogger(__name__)
 
 
+# Data class for Telegram user info
+class TelegramUserInfo:
+    """Container for Telegram user information."""
+
+    def __init__(
+        self,
+        telegram_id: int,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        username: Optional[str] = None,
+        photo_url: Optional[str] = None,
+    ):
+        self.telegram_id = telegram_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.username = username
+        self.photo_url = photo_url
+
+
 class UsersRepository:
     """Repository for Telegram users database operations."""
 
@@ -53,6 +72,69 @@ class UsersRepository:
         except Exception as e:
             logger.error(f"Failed to save user {chat_id}: {e}")
             return False
+
+    def save_user_from_telegram_auth(
+        self,
+        telegram_id: int,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        username: Optional[str] = None,
+        photo_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Save or update a user from Telegram Login Widget authentication.
+
+        Args:
+            telegram_id: Telegram user ID
+            first_name: User's first name
+            last_name: User's last name
+            username: Telegram username
+            photo_url: Profile photo URL
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with self.db.get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO telegram_users (chat_id, username, first_name, last_name, photo_url, is_active)
+                    VALUES (?, ?, ?, ?, ?, TRUE)
+                    ON CONFLICT(chat_id) DO UPDATE SET
+                        username = excluded.username,
+                        first_name = excluded.first_name,
+                        last_name = excluded.last_name,
+                        photo_url = excluded.photo_url,
+                        is_active = TRUE,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (telegram_id, username, first_name, last_name, photo_url),
+                )
+            logger.info(
+                f"User saved from Telegram auth: telegram_id={telegram_id}, username={username}"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save user from Telegram auth {telegram_id}: {e}")
+            return False
+
+    def get_user_by_telegram_id(self, telegram_id: int) -> Optional[dict]:
+        """
+        Get a user by Telegram ID.
+
+        Args:
+            telegram_id: Telegram user ID
+
+        Returns:
+            User dict or None if not found
+        """
+        with self.db.get_cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM telegram_users WHERE chat_id = ?",
+                (telegram_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     def get_user(self, chat_id: int) -> Optional[dict]:
         """
