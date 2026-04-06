@@ -1,344 +1,1020 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ShopSpy - Дашборд</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #0f0f1a;
-      --card: #1a1a2e;
-      --border: rgba(255,255,255,0.06);
-      --accent: #e94560;
-      --green: #4caf50;
-      --orange: #ff9800;
-      --text: #e0e0e0;
-      --muted: #666;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      min-height: 100vh;
-    }
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>ShopSpy - Дашборд</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg: #0f0f1a;
+                --card: #1a1a2e;
+                --border: rgba(255, 255, 255, 0.06);
+                --accent: #e94560;
+                --green: #4caf50;
+                --orange: #ff9800;
+                --telegram: #0088cc;
+                --text: #e0e0e0;
+                --muted: #666;
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: "Outfit", sans-serif;
+                min-height: 100vh;
+            }
 
-    .topbar {
-      padding: 24px 40px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    .topbar-logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      font-size: 24px;
-      font-weight: 800;
-    }
-    .topbar-logo-icon { font-size: 32px; }
-    .topbar-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--green);
-    }
-    .topbar-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity:1; }
-      50% { opacity:0.4; }
-    }
+            .topbar {
+                padding: 24px 40px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid var(--border);
+            }
+            .topbar-logo {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                font-size: 24px;
+                font-weight: 800;
+            }
+            .topbar-logo-icon {
+                font-size: 32px;
+            }
+            .topbar-status {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+                color: var(--green);
+            }
+            .topbar-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--green);
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.4;
+                }
+            }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 40px;
-    }
+            .container {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 32px 40px;
+            }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px 24px;
-    }
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    .stat-value {
-      font-size: 32px;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      color: #fff;
-    }
-    .stat-value.accent { color: var(--accent); }
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 16px;
+                margin-bottom: 36px;
+            }
+            .stat-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 20px 24px;
+            }
+            .stat-label {
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                color: var(--muted);
+                margin-bottom: 8px;
+            }
+            .stat-value {
+                font-size: 32px;
+                font-weight: 700;
+                font-family: "JetBrains Mono", monospace;
+                color: #fff;
+            }
+            .stat-value.accent {
+                color: var(--accent);
+            }
+            .stat-value.telegram {
+                color: var(--telegram);
+            }
 
-    .section-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+            .section-title {
+                font-size: 18px;
+                font-weight: 700;
+                margin-bottom: 16px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
 
-    .products-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--card);
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-    }
-    .products-table th {
-      text-align: left;
-      padding: 14px 18px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--muted);
-      background: rgba(255,255,255,0.02);
-      border-bottom: 1px solid var(--border);
-    }
-    .products-table td {
-      padding: 14px 18px;
-      font-size: 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .products-table tr:last-child td {
-      border-bottom: none;
-    }
-    .products-table tr:hover td {
-      background: rgba(255,255,255,0.02);
-    }
+            /* Telegram Section */
+            .telegram-section {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 24px;
+                margin-bottom: 36px;
+            }
+            .telegram-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 20px;
+            }
+            .telegram-title {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 18px;
+                font-weight: 700;
+            }
+            .telegram-status {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                padding: 6px 12px;
+                border-radius: 20px;
+            }
+            .telegram-status.linked {
+                background: rgba(76, 175, 80, 0.15);
+                color: #81c784;
+            }
+            .telegram-status.unlinked {
+                background: rgba(255, 152, 0, 0.15);
+                color: #ffb74d;
+            }
 
-    .platform-badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .platform-badge.wb {
-      background: rgba(203,70,159,0.2);
-      color: #cb469f;
-    }
-    .platform-badge.ozon {
-      background: rgba(0,91,255,0.2);
-      color: #5b8aff;
-    }
+            .telegram-form {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+            .telegram-input {
+                flex: 1;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 12px 16px;
+                color: var(--text);
+                font-size: 14px;
+                font-family: "JetBrains Mono", monospace;
+            }
+            .telegram-input:focus {
+                outline: none;
+                border-color: var(--telegram);
+            }
+            .telegram-btn {
+                background: var(--telegram);
+                color: #fff;
+                border: none;
+                border-radius: 10px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .telegram-btn:hover {
+                background: #0077b5;
+                transform: translateY(-1px);
+            }
+            .telegram-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .telegram-btn.danger {
+                background: var(--accent);
+            }
+            .telegram-btn.danger:hover {
+                background: #d63850;
+            }
+            .telegram-hint {
+                font-size: 12px;
+                color: var(--muted);
+                line-height: 1.6;
+            }
+            .telegram-hint code {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: "JetBrains Mono", monospace;
+            }
 
-    .price-range {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-    }
-    .price-min { color: var(--green); }
-    .price-max { color: var(--accent); }
-    .price-dash { color: var(--muted); margin: 0 4px; }
+            /* Alerts List */
+            .alerts-list {
+                margin-top: 16px;
+            }
+            .alerts-title {
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 12px;
+            }
+            .alert-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 8px;
+                margin-bottom: 8px;
+            }
+            .alert-item:last-child {
+                margin-bottom: 0;
+            }
+            .alert-info {
+                flex: 1;
+            }
+            .alert-name {
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+            .alert-target {
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .alert-remove {
+                background: transparent;
+                border: none;
+                color: var(--muted);
+                cursor: pointer;
+                padding: 4px 8px;
+                font-size: 18px;
+            }
+            .alert-remove:hover {
+                color: var(--accent);
+            }
 
-    .product-link {
-      color: var(--text);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-    .product-link:hover { color: var(--accent); }
+            /* Products Table */
+            .products-table {
+                width: 100%;
+                border-collapse: collapse;
+                background: var(--card);
+                border-radius: 14px;
+                overflow: hidden;
+                border: 1px solid var(--border);
+            }
+            .products-table th {
+                text-align: left;
+                padding: 14px 18px;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: var(--muted);
+                background: rgba(255, 255, 255, 0.02);
+                border-bottom: 1px solid var(--border);
+            }
+            .products-table td {
+                padding: 14px 18px;
+                font-size: 14px;
+                border-bottom: 1px solid var(--border);
+                vertical-align: middle;
+            }
+            .products-table tr:last-child td {
+                border-bottom: none;
+            }
+            .products-table tr:hover td {
+                background: rgba(255, 255, 255, 0.02);
+            }
 
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--muted);
-    }
-    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-    .empty-state-text { font-size: 16px; margin-bottom: 8px; }
-    .empty-state-hint { font-size: 13px; color: #444; }
+            .platform-badge {
+                display: inline-block;
+                padding: 3px 10px;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+            }
+            .platform-badge.wb {
+                background: rgba(203, 70, 159, 0.2);
+                color: #cb469f;
+            }
+            .platform-badge.ozon {
+                background: rgba(0, 91, 255, 0.2);
+                color: #5b8aff;
+            }
 
-    .howto {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px;
-      margin-top: 36px;
-    }
-    .howto-steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-top: 16px;
-    }
-    .howto-step {
-      padding: 16px;
-      background: rgba(255,255,255,0.02);
-      border-radius: 10px;
-    }
-    .howto-step-num {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-    .howto-step-text {
-      font-size: 13px;
-      color: #bbb;
-      line-height: 1.5;
-    }
+            .price-range {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 13px;
+            }
+            .price-min {
+                color: var(--green);
+            }
+            .price-max {
+                color: var(--accent);
+            }
+            .price-dash {
+                color: var(--muted);
+                margin: 0 4px;
+            }
 
-    @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .howto-steps { grid-template-columns: 1fr; }
-      .container { padding: 20px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <div class="topbar-logo">
-      <span class="topbar-logo-icon">🔍</span>
-      ShopSpy
-    </div>
-    <div class="topbar-status">
-      <div class="topbar-dot"></div>
-      Сервер работает
-    </div>
-  </div>
+            .product-link {
+                color: var(--text);
+                text-decoration: none;
+                transition: color 0.15s;
+            }
+            .product-link:hover {
+                color: var(--accent);
+            }
 
-  <div class="container">
-    <div class="stats-grid" id="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Товаров</div>
-        <div class="stat-value accent" id="s-products">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Записей цен</div>
-        <div class="stat-value" id="s-records">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Wildberries</div>
-        <div class="stat-value" id="s-wb">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Ozon</div>
-        <div class="stat-value" id="s-ozon">0</div>
-      </div>
-    </div>
+            .track-btn {
+                background: transparent;
+                border: 1px solid var(--telegram);
+                color: var(--telegram);
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .track-btn:hover {
+                background: var(--telegram);
+                color: #fff;
+            }
+            .track-btn.tracking {
+                background: rgba(0, 136, 204, 0.2);
+                border-color: transparent;
+                color: var(--telegram);
+            }
 
-    <div class="section-title">📦 Отслеживаемые товары</div>
-    <div id="products-container"></div>
+            /* Modal */
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.2s;
+            }
+            .modal-overlay.active {
+                opacity: 1;
+                visibility: visible;
+            }
+            .modal {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 28px;
+                max-width: 420px;
+                width: 90%;
+                transform: scale(0.9);
+                transition: transform 0.2s;
+            }
+            .modal-overlay.active .modal {
+                transform: scale(1);
+            }
+            .modal-title {
+                font-size: 18px;
+                font-weight: 700;
+                margin-bottom: 8px;
+            }
+            .modal-product {
+                font-size: 13px;
+                color: var(--muted);
+                margin-bottom: 20px;
+            }
+            .modal-field {
+                margin-bottom: 16px;
+            }
+            .modal-label {
+                display: block;
+                font-size: 12px;
+                color: var(--muted);
+                margin-bottom: 6px;
+            }
+            .modal-input {
+                width: 100%;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 10px 14px;
+                color: var(--text);
+                font-size: 14px;
+            }
+            .modal-input:focus {
+                outline: none;
+                border-color: var(--telegram);
+            }
+            .modal-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 20px;
+            }
+            .modal-btn {
+                flex: 1;
+                padding: 12px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .modal-btn.primary {
+                background: var(--telegram);
+                border: none;
+                color: #fff;
+            }
+            .modal-btn.primary:hover {
+                background: #0077b5;
+            }
+            .modal-btn.secondary {
+                background: transparent;
+                border: 1px solid var(--border);
+                color: var(--muted);
+            }
+            .modal-btn.secondary:hover {
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text);
+            }
 
-    <div class="howto">
-      <div class="section-title">🚀 Как использовать</div>
-      <div class="howto-steps">
-        <div class="howto-step">
-          <div class="howto-step-num">1</div>
-          <div class="howto-step-text">
-            Установите расширение в Chrome: chrome://extensions → Режим разработчика → Загрузить распакованное → выберите папку <code>extension/</code>
-          </div>
+            .empty-state {
+                text-align: center;
+                padding: 60px 20px;
+                color: var(--muted);
+            }
+            .empty-state-icon {
+                font-size: 48px;
+                margin-bottom: 16px;
+            }
+            .empty-state-text {
+                font-size: 16px;
+                margin-bottom: 8px;
+            }
+            .empty-state-hint {
+                font-size: 13px;
+                color: #444;
+            }
+
+            .howto {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 28px;
+                margin-top: 36px;
+            }
+            .howto-steps {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+                margin-top: 16px;
+            }
+            .howto-step {
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 10px;
+            }
+            .howto-step-num {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: var(--accent);
+                color: #fff;
+                font-size: 13px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+            .howto-step-text {
+                font-size: 13px;
+                color: #bbb;
+                line-height: 1.5;
+            }
+
+            @media (max-width: 768px) {
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                .howto-steps {
+                    grid-template-columns: 1fr;
+                }
+                .container {
+                    padding: 20px;
+                }
+                .telegram-form {
+                    flex-direction: column;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="topbar">
+            <div class="topbar-logo">
+                <span class="topbar-logo-icon">🔍</span>
+                ShopSpy
+            </div>
+            <div class="topbar-status">
+                <div class="topbar-dot"></div>
+                Сервер работает
+            </div>
         </div>
-        <div class="howto-step">
-          <div class="howto-step-num">2</div>
-          <div class="howto-step-text">
-            Держите этот сервер запущенным:<br>
-            <code>python backend/main.py</code>
-          </div>
+
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Товаров</div>
+                    <div class="stat-value accent" id="s-products">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Записей цен</div>
+                    <div class="stat-value" id="s-records">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Wildberries</div>
+                    <div class="stat-value" id="s-wb">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ozon</div>
+                    <div class="stat-value" id="s-ozon">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Telegram</div>
+                    <div class="stat-value telegram" id="s-telegram">0</div>
+                </div>
+            </div>
+
+            <!-- Telegram Section -->
+            <div class="telegram-section">
+                <div class="telegram-header">
+                    <div class="telegram-title">
+                        <span>📱</span>
+                        Telegram уведомления
+                    </div>
+                    <div class="telegram-status unlinked" id="telegram-status">
+                        <span>⚠️</span>
+                        Не привязан
+                    </div>
+                </div>
+
+                <div class="telegram-form" id="telegram-form">
+                    <input
+                        type="text"
+                        class="telegram-input"
+                        id="chat-id-input"
+                        placeholder="Введите ваш Chat ID"
+                    />
+                    <button class="telegram-btn" id="link-telegram-btn">
+                        Привязать
+                    </button>
+                </div>
+
+                <div class="telegram-hint">
+                    <strong>Как получить Chat ID:</strong><br />
+                    1. Откройте бота <code>@userinfobot</code> в Telegram<br />
+                    2. Отправьте команду <code>/start</code><br />
+                    3. Бот пришлёт ваш Chat ID — скопируйте его сюда
+                </div>
+
+                <!-- Alerts List -->
+                <div
+                    class="alerts-list"
+                    id="alerts-list"
+                    style="display: none"
+                ></div>
+            </div>
+
+            <div class="section-title">📦 Отслеживаемые товары</div>
+            <div id="products-container"></div>
+
+            <div class="howto">
+                <div class="section-title">🚀 Как использовать</div>
+                <div class="howto-steps">
+                    <div class="howto-step">
+                        <div class="howto-step-num">1</div>
+                        <div class="howto-step-text">
+                            Установите расширение в Chrome:
+                            <code>chrome://extensions</code> → Режим
+                            разработчика → Загрузить распакованное
+                        </div>
+                    </div>
+                    <div class="howto-step">
+                        <div class="howto-step-num">2</div>
+                        <div class="howto-step-text">
+                            Привяжите Telegram: узнайте свой Chat ID через
+                            <code>@userinfobot</code> и введите выше
+                        </div>
+                    </div>
+                    <div class="howto-step">
+                        <div class="howto-step-num">3</div>
+                        <div class="howto-step-text">
+                            Открывайте товары на WB/Ozon — цены сохраняются
+                            автоматически
+                        </div>
+                    </div>
+                    <div class="howto-step">
+                        <div class="howto-step-num">4</div>
+                        <div class="howto-step-text">
+                            Нажмите "Отслеживать" на товаре и укажите желаемую
+                            цену для уведомления
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="howto-step">
-          <div class="howto-step-num">3</div>
-          <div class="howto-step-text">
-            Открывайте товары на WB и Ozon. Расширение автоматически собирает цены и показывает анализ.
-          </div>
+
+        <!-- Modal for creating alert -->
+        <div class="modal-overlay" id="modal-overlay">
+            <div class="modal">
+                <div class="modal-title">🔔 Отслеживать цену</div>
+                <div class="modal-product" id="modal-product-name">
+                    Название товара
+                </div>
+
+                <div class="modal-field">
+                    <label class="modal-label">Ваш Chat ID</label>
+                    <input
+                        type="text"
+                        class="modal-input"
+                        id="modal-chat-id"
+                        placeholder="Например: 123456789"
+                    />
+                </div>
+
+                <div class="modal-field">
+                    <label class="modal-label"
+                        >Целевая цена (₽) — необязательно</label
+                    >
+                    <input
+                        type="number"
+                        class="modal-input"
+                        id="modal-target-price"
+                        placeholder="Уведомить когда цена упадёт до..."
+                    />
+                </div>
+
+                <div style="font-size: 12px; color: var(--muted)">
+                    Оставьте пустым, чтобы получать уведомления о любом снижении
+                    цены
+                </div>
+
+                <div class="modal-actions">
+                    <button class="modal-btn secondary" id="modal-cancel">
+                        Отмена
+                    </button>
+                    <button class="modal-btn primary" id="modal-submit">
+                        Отслеживать
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <script>
-    async function loadData() {
-      try {
-        const [statsResp, productsResp] = await Promise.all([
-          fetch('/api/stats'),
-          fetch('/api/products')
-        ]);
-        const stats = await statsResp.json();
-        const products = await productsResp.json();
+        <script>
+            let currentChatId = null;
+            let currentAlerts = [];
 
-        document.getElementById('s-products').textContent = stats.unique_products || 0;
-        document.getElementById('s-records').textContent = stats.total_records || 0;
-        document.getElementById('s-wb').textContent = stats.platforms?.wb || 0;
-        document.getElementById('s-ozon').textContent = stats.platforms?.ozon || 0;
+            // Load stats
+            async function loadData() {
+                try {
+                    const [statsResp, productsResp] = await Promise.all([
+                        fetch("/api/stats"),
+                        fetch("/api/products"),
+                    ]);
+                    const stats = await statsResp.json();
+                    const products = await productsResp.json();
 
-        const container = document.getElementById('products-container');
+                    document.getElementById("s-products").textContent =
+                        stats.unique_products || 0;
+                    document.getElementById("s-records").textContent =
+                        stats.total_records || 0;
+                    document.getElementById("s-wb").textContent =
+                        stats.platforms?.wb || 0;
+                    document.getElementById("s-ozon").textContent =
+                        stats.platforms?.ozon || 0;
+                    document.getElementById("s-telegram").textContent =
+                        stats.telegram_users || 0;
 
-        if (!products.products || products.products.length === 0) {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <div class="empty-state-text">Пока нет данных</div>
-              <div class="empty-state-hint">Откройте любой товар на WB или Ozon с установленным расширением</div>
-            </div>`;
-          return;
-        }
+                    renderProducts(products.products || []);
+                } catch (e) {
+                    console.error("Failed to load data:", e);
+                }
+            }
 
-        let tableHtml = `<table class="products-table">
-          <thead><tr>
-            <th>Площадка</th>
-            <th>Товар</th>
-            <th>Диапазон цен</th>
-            <th>Записей</th>
-            <th>Последнее</th>
-          </tr></thead><tbody>`;
+            // Render products table
+            function renderProducts(products) {
+                const container = document.getElementById("products-container");
 
-        for (const p of products.products) {
-          const platformCls = p.platform === 'wb' ? 'wb' : 'ozon';
-          const platformName = p.platform === 'wb' ? 'WB' : 'OZON';
-          const name = p.name || `#${p.product_id}`;
-          const shortName = name.length > 50 ? name.slice(0, 50) + '...' : name;
-          const lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleString('ru') : '-';
+                if (!products.length) {
+                    container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-text">Пока нет данных</div>
+            <div class="empty-state-hint">Откройте любой товар на WB или Ozon с установленным расширением</div>
+          </div>`;
+                    return;
+                }
 
-          tableHtml += `<tr>
-            <td><span class="platform-badge ${platformCls}">${platformName}</span></td>
-            <td>${p.url ? `<a href="${p.url}" target="_blank" class="product-link">${shortName}</a>` : shortName}</td>
-            <td class="price-range">
-              <span class="price-min">${p.min_price?.toLocaleString('ru')} ₽</span>
-              <span class="price-dash">—</span>
-              <span class="price-max">${p.max_price?.toLocaleString('ru')} ₽</span>
-            </td>
-            <td>${p.records}</td>
-            <td style="font-size:12px;color:var(--muted)">${lastSeen}</td>
-          </tr>`;
-        }
+                let tableHtml = `<table class="products-table">
+        <thead><tr>
+          <th>Площадка</th>
+          <th>Товар</th>
+          <th>Диапазон цен</th>
+          <th>Записей</th>
+          <th></th>
+        </tr></thead><tbody>`;
 
-        tableHtml += '</tbody></table>';
-        container.innerHTML = tableHtml;
-      } catch (e) {
-        console.error('Failed to load data:', e);
-      }
-    }
+                for (const p of products) {
+                    const platformCls = p.platform === "wb" ? "wb" : "ozon";
+                    const platformName = p.platform === "wb" ? "WB" : "OZON";
+                    const name = p.name || `#${p.product_id}`;
+                    const shortName =
+                        name.length > 40 ? name.slice(0, 40) + "..." : name;
+                    const isTracking = currentAlerts.some(
+                        (a) =>
+                            a.platform === p.platform &&
+                            a.product_id === p.product_id,
+                    );
 
-    loadData();
-    setInterval(loadData, 10000);
-  </script>
-</body>
+                    tableHtml += `<tr>
+          <td><span class="platform-badge ${platformCls}">${platformName}</span></td>
+          <td>${p.url ? `<a href="${p.url}" target="_blank" class="product-link">${shortName}</a>` : shortName}</td>
+          <td class="price-range">
+            <span class="price-min">${p.min_price?.toLocaleString("ru")} ₽</span>
+            <span class="price-dash">—</span>
+            <span class="price-max">${p.max_price?.toLocaleString("ru")} ₽</span>
+          </td>
+          <td>${p.records}</td>
+          <td>
+            <button class="track-btn ${isTracking ? "tracking" : ""}"
+                    data-platform="${p.platform}"
+                    data-product-id="${p.product_id}"
+                    data-product-name="${name.replace(/"/g, "&quot;")}"
+                    data-url="${p.url || ""}">
+              ${isTracking ? "✓ Отслеживается" : "🔔 Отслеживать"}
+            </button>
+          </td>
+        </tr>`;
+                }
+
+                tableHtml += "</tbody></table>";
+                container.innerHTML = tableHtml;
+
+                // Add click handlers
+                document.querySelectorAll(".track-btn").forEach((btn) => {
+                    btn.addEventListener("click", () => openModal(btn.dataset));
+                });
+            }
+
+            // Telegram linking
+            async function checkTelegramStatus() {
+                const savedChatId = localStorage.getItem("telegram_chat_id");
+                if (!savedChatId) return;
+
+                try {
+                    const resp = await fetch(
+                        `/api/telegram/status?chat_id=${savedChatId}`,
+                    );
+                    const data = await resp.json();
+
+                    if (data.linked) {
+                        currentChatId = parseInt(savedChatId);
+                        updateTelegramUI(true);
+                        loadAlerts(currentChatId);
+                    }
+                } catch (e) {
+                    console.error("Failed to check telegram status:", e);
+                }
+            }
+
+            async function linkTelegram() {
+                const input = document.getElementById("chat-id-input");
+                const chatId = parseInt(input.value.trim());
+
+                if (!chatId || isNaN(chatId)) {
+                    alert("Введите корректный Chat ID");
+                    return;
+                }
+
+                const btn = document.getElementById("link-telegram-btn");
+                btn.disabled = true;
+                btn.textContent = "Привязка...";
+
+                try {
+                    const resp = await fetch("/api/telegram/register", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ chat_id: chatId }),
+                    });
+                    const data = await resp.json();
+
+                    if (data.status === "ok") {
+                        currentChatId = chatId;
+                        localStorage.setItem(
+                            "telegram_chat_id",
+                            chatId.toString(),
+                        );
+                        updateTelegramUI(true);
+                        loadAlerts(chatId);
+                    } else {
+                        alert(data.message || "Ошибка привязки");
+                    }
+                } catch (e) {
+                    alert("Ошибка соединения");
+                }
+
+                btn.disabled = false;
+                btn.textContent = "Привязать";
+            }
+
+            function updateTelegramUI(linked) {
+                const status = document.getElementById("telegram-status");
+                const form = document.getElementById("telegram-form");
+
+                if (linked) {
+                    status.className = "telegram-status linked";
+                    status.innerHTML = "<span>✓</span> Привязан";
+                    form.innerHTML = `
+          <div style="flex:1;font-size:14px;color:var(--text);display:flex;align-items:center;">
+            Chat ID: <code style="background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:4px;margin-left:8px;">${currentChatId}</code>
+          </div>
+          <button class="telegram-btn danger" onclick="unlinkTelegram()">Отвязать</button>
+        `;
+                } else {
+                    status.className = "telegram-status unlinked";
+                    status.innerHTML = "<span>⚠️</span> Не привязан";
+                }
+            }
+
+            async function unlinkTelegram() {
+                localStorage.removeItem("telegram_chat_id");
+                currentChatId = null;
+                location.reload();
+            }
+
+            // Load user alerts
+            async function loadAlerts(chatId) {
+                try {
+                    const resp = await fetch(`/api/alerts?chat_id=${chatId}`);
+                    const data = await resp.json();
+                    currentAlerts = data.alerts || [];
+                    renderAlerts();
+                    loadData();
+                } catch (e) {
+                    console.error("Failed to load alerts:", e);
+                }
+            }
+
+            function renderAlerts() {
+                const container = document.getElementById("alerts-list");
+
+                if (!currentAlerts.length) {
+                    container.style.display = "none";
+                    return;
+                }
+
+                container.style.display = "block";
+                let html =
+                    '<div class="alerts-title">🔔 Мои уведомления:</div>';
+
+                for (const alert of currentAlerts) {
+                    const platformEmoji = alert.platform === "wb" ? "🟣" : "🔵";
+                    const name =
+                        alert.product_name?.slice(0, 40) || alert.product_id;
+                    const target = alert.target_price
+                        ? `Цель: ${alert.target_price.toLocaleString("ru")} ₽`
+                        : "Любое снижение";
+
+                    html += `
+          <div class="alert-item">
+            <div class="alert-info">
+              <div class="alert-name">${platformEmoji} ${name}</div>
+              <div class="alert-target">${target}</div>
+            </div>
+            <button class="alert-remove" onclick="removeAlert('${alert.platform}', '${alert.product_id}')">×</button>
+          </div>
+        `;
+                }
+
+                container.innerHTML = html;
+            }
+
+            async function removeAlert(platform, productId) {
+                try {
+                    await fetch(
+                        `/api/alerts?chat_id=${currentChatId}&platform=${platform}&product_id=${productId}`,
+                        {
+                            method: "DELETE",
+                        },
+                    );
+                    loadAlerts(currentChatId);
+                } catch (e) {
+                    console.error("Failed to remove alert:", e);
+                }
+            }
+
+            // Modal
+            function openModal(dataset) {
+                document.getElementById("modal-product-name").textContent =
+                    dataset.productName || `Товар #${dataset.productId}`;
+                document.getElementById("modal-chat-id").value =
+                    currentChatId || "";
+                document.getElementById("modal-target-price").value = "";
+                document
+                    .getElementById("modal-overlay")
+                    .classList.add("active");
+                window.modalData = dataset;
+            }
+
+            function closeModal() {
+                document
+                    .getElementById("modal-overlay")
+                    .classList.remove("active");
+            }
+
+            async function submitAlert() {
+                const chatId = parseInt(
+                    document.getElementById("modal-chat-id").value.trim(),
+                );
+                const targetPrice =
+                    parseFloat(
+                        document.getElementById("modal-target-price").value,
+                    ) || null;
+
+                if (!chatId || isNaN(chatId)) {
+                    alert("Введите Chat ID");
+                    return;
+                }
+
+                const data = window.modalData;
+
+                try {
+                    const resp = await fetch("/api/alerts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            platform: data.platform,
+                            product_id: data.productId,
+                            product_name: data.productName,
+                            target_price: targetPrice,
+                            url: data.url,
+                        }),
+                    });
+
+                    const result = await resp.json();
+
+                    if (result.status === "ok") {
+                        closeModal();
+                        if (!currentChatId) {
+                            currentChatId = chatId;
+                            localStorage.setItem(
+                                "telegram_chat_id",
+                                chatId.toString(),
+                            );
+                            updateTelegramUI(true);
+                        }
+                        loadAlerts(chatId);
+                    } else {
+                        alert(result.message || "Ошибка");
+                    }
+                } catch (e) {
+                    alert("Ошибка соединения");
+                }
+            }
+
+            // Event listeners
+            document
+                .getElementById("link-telegram-btn")
+                .addEventListener("click", linkTelegram);
+            document
+                .getElementById("modal-cancel")
+                .addEventListener("click", closeModal);
+            document
+                .getElementById("modal-submit")
+                .addEventListener("click", submitAlert);
+            document
+                .getElementById("modal-overlay")
+                .addEventListener("click", (e) => {
+                    if (e.target === document.getElementById("modal-overlay"))
+                        closeModal();
+                });
+
+            // Init
+            checkTelegramStatus();
+            loadData();
+            setInterval(loadData, 15000);
+        </script>
+    </body>
 </html>
