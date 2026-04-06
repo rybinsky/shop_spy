@@ -20,13 +20,21 @@
   }
   
   function getCurrentPrice() {
-    // Новый селектор для WB
+    console.log('ShopSpy WB: getCurrentPrice called');
+    
     for (const s of ['ins.priceBlockFinalPrice--iToZR', '.priceBlockFinalPrice--iToZR', '.price-block__final-price']) {
       const el = document.querySelector(s);
-      if (el) { const v = parseFloat(el.textContent.replace(/[^\d]/g, '')); if (v > 0) return v; }
+      console.log('ShopSpy WB: selector "' + s + '" =>', el);
+      if (el) { 
+        console.log('ShopSpy WB: element text =', el.textContent);
+        const v = parseFloat(el.textContent.replace(/[^\d]/g, '')); 
+        console.log('ShopSpy WB: parsed value =', v);
+        if (v > 0) return v; 
+      }
     }
     return null;
   }
+
   
   function getOriginalPrice() {
     // Новый селектор для WB
@@ -48,14 +56,39 @@
   }
 
   async function init() {
+    console.log('ShopSpy WB: init started');
+    
     const productId = getProductId();
-    if (!productId) return;
+    console.log('ShopSpy WB: productId =', productId);
+    
+    if (!productId) {
+      console.log('ShopSpy WB: no productId, exit');
+      return;
+    }
+    
     SHOPSPY.createPanel();
-    const price = getCurrentPrice(), originalPrice = getOriginalPrice(), name = getProductName();
-    if (price) await SHOPSPY.sendPrice(PLATFORM, productId, name, price, originalPrice);
+    
+    const price = getCurrentPrice();
+    const originalPrice = getOriginalPrice();
+    const name = getProductName();
+    
+    console.log('ShopSpy WB: price =', price);
+    console.log('ShopSpy WB: originalPrice =', originalPrice);
+    console.log('ShopSpy WB: name =', name);
+    
+    if (price) {
+      console.log('ShopSpy WB: sending price to server...');
+      await SHOPSPY.sendPrice(PLATFORM, productId, name, price, originalPrice);
+    } else {
+      console.log('ShopSpy WB: price is null, NOT sending');
+    }
+    
     const h = await SHOPSPY.getHistory(PLATFORM, productId);
+    console.log('ShopSpy WB: history =', h);
+    
     SHOPSPY.renderPanel({ history: h.history, analysis: h.analysis, reviews: null, productName: name, price, originalPrice, platform: PLATFORM, productId, getReviews });
   }
+
 
   let lastUrl = '';
   setInterval(() => { if (window.location.href !== lastUrl) { lastUrl = window.location.href; if (getProductId()) setTimeout(init, 1500); } }, 1000);
