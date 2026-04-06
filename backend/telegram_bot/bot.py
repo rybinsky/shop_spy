@@ -11,7 +11,13 @@ from typing import Optional
 from aiogram import Bot, Dispatcher, types
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
 
 from backend.config import config
 from backend.db import AlertsRepository, UsersRepository, get_database
@@ -59,6 +65,18 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Failed to start Telegram bot: {e}")
 
+    def _get_main_keyboard(self) -> ReplyKeyboardMarkup:
+        """Get main menu keyboard."""
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="📋 Мои товары")],
+                [KeyboardButton(text="❓ Помощь"), KeyboardButton(text="🚫 Отключить")],
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=False,
+        )
+        return keyboard
+
     def _register_handlers(self) -> None:
         """Register command handlers."""
 
@@ -78,6 +96,24 @@ class TelegramBot:
         async def cmd_help(message: types.Message):
             await self._handle_help(message)
 
+        # Handle button presses
+        @self.dp.message(lambda m: m.text == "📋 Мои товары")
+        async def btn_list(message: types.Message):
+            await self._handle_list(message)
+
+        @self.dp.message(lambda m: m.text == "❓ Помощь")
+        async def btn_help(message: types.Message):
+            await self._handle_help(message)
+
+        @self.dp.message(lambda m: m.text == "🚫 Отключить")
+        async def btn_stop(message: types.Message):
+            await self._handle_stop(message)
+
+        # Handle callback queries (inline buttons)
+        @self.dp.callback_query(lambda c: c.data.startswith("delete_"))
+        async def callback_delete(callback: CallbackQuery):
+            await self._handle_delete_callback(callback)
+
     async def _handle_start(self, message: types.Message) -> None:
         """Handle /start command."""
         chat_id = message.chat.id
@@ -86,23 +122,27 @@ class TelegramBot:
         # Save user
         self.users_repo.save_user(chat_id, username)
 
-        # Send welcome message
+        # Send welcome message with keyboard
         text = f"""👋 Привет!
 
 Я — <b>ShopSpy Bot</b>, помогаю следить за ценами на маркетплейсах.
 
 📋 <b>Твой Chat ID:</b> <code>{chat_id}</code>
 
-Используй этот ID на дашборде ShopSpy для привязки уведомлений.
+Используй этот ID в расширении ShopSpy для привязки уведомлений.
 
-<b>Команды:</b>
-/start — показать это сообщение
-/stop — отключить все уведомления
-/list — мои отслеживаемые товары
-/help — справка"""
+<b>Как пользоваться:</b>
+1️⃣ Установи расширение ShopSpy для Chrome
+2️⃣ Открой товар на WB или Ozon
+3️⃣ Нажми "Отслеживать" в панели ShopSpy
+4️⃣ Получай уведомления о смене цены!
+
+Используй кнопки ниже для управления 👇"""
 
         try:
-            await message.answer(text, parse_mode="HTML")
+            await message.answer(
+                text, parse_mode="HTML", reply_markup=self._get_main_keyboard()
+            )
             logger.info(f"User started bot: chat_id={chat_id}")
         except Exception as e:
             logger.error(f"Failed to send welcome message: {e}")
@@ -120,10 +160,44 @@ class TelegramBot:
 Чтобы снова включить, отправь /start"""
 
         try:
-            await message.answer(text)
+            await message.answer(text, reply_markup=self._get_main_keyboard())
             logger.info(f"User stopped notifications: chat_id={chat_id}")
         except Exception as e:
             logger.error(f"Failed to send stop message: {e}")
+
+    async def _handle_delete_callback(self, callback: CallbackQuery) -> None:
+        """Handle delete button callback."""
+        chat_id = callback.message.chat.id
+
+        # Parse callback data: delete_platform_productId
+        try:
+            parts = callback.data.split("_")
+            if len(parts) < 3:
+                await callback.answer("Ошибка: неверные данные")
+                return
+
+            platform = parts[1]
+            product_id = parts[2]
+
+            # Delete the alert
+            success = self.alerts_repo.delete_alert(chat_id, platform, product_id)
+
+            if success:
+                # Edit the message to show it's deleted
+                try:
+                    await callback.message.edit_text(
+                        "❌ Товар удалён из отслеживания", reply_markup=None
+                    )
+                except Exception:
+                    pass
+                await callback.answer("✅ Товар удалён")
+                logger.info(f"Deleted alert: {platform}:{product_id} for {chat_id}")
+            else:
+                await callback.answer("Ошибка при удалении")
+
+        except Exception as e:
+            logger.error(f"Error handling delete callback: {e}")
+            await callback.answer("Произошла ошибка")
 
     async def _handle_list(self, message: types.Message) -> None:
         """Handle /list command."""
@@ -133,64 +207,88 @@ class TelegramBot:
         if not alerts:
             text = """📭 У тебя пока нет отслеживаемых товаров.
 
-Добавь товары через дашборд ShopSpy:
-1. Открой дашборд в браузере
-2. Нажми "Отслеживать" на нужном товаре"""
-            await message.answer(text)
+Добавь товары через расширение ShopSpy:
+1. Открой товар на WB или Ozon
+2. Нажми "Отслеживать" в панели ShopSpy"""
+            await message.answer(text, reply_markup=self._get_main_keyboard())
             return
 
-        text = "📋 <b>Отслеживаемые товары:</b>\n\n"
-
-        for i, alert in enumerate(alerts[:10], 1):
+        # Send each product as separate message with button
+        for i, alert in enumerate(alerts, 1):
             platform_emoji = "🟣" if alert["platform"] == "wb" else "🔵"
+            platform_name = "Wildberries" if alert["platform"] == "wb" else "Ozon"
             name = alert.get("product_name") or alert["product_id"]
-            if name and len(name) > 30:
-                name = name[:30] + "..."
 
-            target = (
-                f"🎯 {alert['target_price']:,.0f} ₽"
-                if alert.get("target_price")
-                else ""
+            # Make product name a clickable link if URL is available
+            if alert.get("url"):
+                name_display = f'<a href="{alert["url"]}">{name}</a>'
+            else:
+                name_display = name
+
+            price_info = ""
+            if alert.get("last_price"):
+                price_info = f"\n💰 Цена: <b>{alert['last_price']:,.0f} ₽</b>"
+
+            text = f"""{i}. {platform_emoji} <b>{platform_name}</b>
+📦 {name_display}{price_info}"""
+
+            # Create inline keyboard
+            buttons = []
+            if alert.get("url"):
+                buttons.append(
+                    [InlineKeyboardButton(text="🛒 Открыть товар", url=alert["url"])]
+                )
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text="❌ Удалить",
+                        callback_data=f"delete_{alert['platform']}_{alert['product_id']}",
+                    )
+                ]
             )
-            last = (
-                f"Текущая: {alert['last_price']:,.0f} ₽"
-                if alert.get("last_price")
-                else ""
-            )
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-            text += f"{i}. {platform_emoji} {name}\n   {target} {last}\n\n"
+            try:
+                await message.answer(
+                    text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard,
+                    disable_web_page_preview=True,
+                )
+            except Exception as e:
+                logger.error(f"Failed to send product {i}: {e}")
 
-        if len(alerts) > 10:
-            text += f"...и ещё {len(alerts) - 10} товаров"
-
-        try:
-            await message.answer(text, parse_mode="HTML")
-        except Exception as e:
-            logger.error(f"Failed to send list: {e}")
+        # Summary message
+        total_text = f"\n📊 Всего товаров: {len(alerts)}"
+        await message.answer(total_text, reply_markup=self._get_main_keyboard())
 
     async def _handle_help(self, message: types.Message) -> None:
         """Handle /help command."""
         text = """🤖 <b>ShopSpy Bot — Справка</b>
 
 <b>Как это работает:</b>
-1. Установи расширение ShopSpy для Chrome
-2. Открывай товары на WB или Ozon
-3. На дашборде добавь товары в отслеживаемые
-4. Укажи желаемую цену
-5. Получай уведомления когда цена падает!
+1️⃣ Установи расширение ShopSpy для Chrome
+2️⃣ Открой товар на WB или Ozon
+3️⃣ Нажми "Отслеживать" в панели ShopSpy
+4️⃣ Получай уведомления о любой смене цены!
 
-<b>Команды:</b>
-/start — получить Chat ID
-/stop — отключить уведомления
-/list — мои товары
-/help — эта справка
+<b>Кнопки меню:</b>
+📋 Мои товары — список отслеживаемых
+❓ Помощь — эта справка
+🚫 Отключить — отключить все уведомления
 
 <b>Поддерживаемые площадки:</b>
 🟣 Wildberries
-🔵 Ozon"""
+🔵 Ozon
+
+<b>Дополнительно:</b>
+• Уведомления приходят автоматически при смене цены
+• Crawler проверяет цены каждые 6 часов"""
 
         try:
-            await message.answer(text, parse_mode="HTML")
+            await message.answer(
+                text, parse_mode="HTML", reply_markup=self._get_main_keyboard()
+            )
         except Exception as e:
             logger.error(f"Failed to send help: {e}")
 
@@ -233,18 +331,13 @@ class TelegramBot:
             trend = "📈"
             trend_text = f"выросла на {diff_percent:.1f}% ({diff:,.0f} ₽)"
 
-        # Truncate long names
-        short_name = (
-            product_name[:50] + "..." if len(product_name) > 50 else product_name
-        )
-
         text = f"""{trend} <b>Изменение цены!</b>
 
 {platform_emoji} <b>{platform_name}</b>
-📦 {short_name}
+📦 {product_name}
 
-💰 Старая цена: {old_price:,.0f} ₽
-💰 Новая цена: <b>{new_price:,.0f} ₽</b>
+💰 Было: {old_price:,.0f} ₽
+💰 Стало: <b>{new_price:,.0f} ₽</b>
 
 {trend_text}"""
 
@@ -309,14 +402,10 @@ class TelegramBot:
         platform_emoji = "🟣" if platform == "wb" else "🔵"
         platform_name = "Wildberries" if platform == "wb" else "Ozon"
 
-        short_name = (
-            product_name[:50] + "..." if len(product_name) > 50 else product_name
-        )
-
         text = f"""🎯 <b>Целевая цена достигнута!</b>
 
 {platform_emoji} <b>{platform_name}</b>
-📦 {short_name}
+📦 {product_name}
 
 💰 Текущая цена: <b>{current_price:,.0f} ₽</b>
 🎯 Ваша цель: {target_price:,.0f} ₽
