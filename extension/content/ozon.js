@@ -66,7 +66,7 @@
 
   function getReviews() {
     const r = [];
-    document.querySelectorAll('[data-widget="webReviewComments"] div[itemprop="description"], [data-review-text], .review-text').forEach(el => {
+    document.querySelectorAll('[data-widget="webListReview"] div[itemprop="description"], [data-review-text], .review-text').forEach(el => {
       const t = el.textContent.trim();
       if (t.length > 10) r.push(t);
     });
