@@ -65,13 +65,35 @@
   }
 
   function getReviews() {
-    const r = [];
-    document.querySelectorAll('[data-widget="webListReview"] div[itemprop="description"], [data-review-text], .review-text').forEach(el => {
-      const t = el.textContent.trim();
-      if (t.length > 10) r.push(t);
-    });
-    return r;
-  }
+      const r = [];
+      // Способ 1: находим контейнеры отзывов по data-review-uuid
+      document.querySelectorAll('[data-review-uuid]').forEach(reviewEl => {
+        // Текст отзыва - самый длинный span внутри блока с текстом
+        const spans = reviewEl.querySelectorAll('span');
+        let longest = '';
+        spans.forEach(sp => {
+          const t = sp.textContent.trim();
+          // Отсекаем имена, даты, кнопки "Да/Нет", варианты товара
+          if (t.length > longest.length && t.length > 5
+              && !t.match(/^\d+ \w+ \d{4}$/)
+              && !t.match(/^(Да|Нет) \d+$/)
+              && !t.match(/^(Длина|Цвет|Размер|Название)/)
+              && !t.includes('Вам помог')) {
+            longest = t;
+          }
+        });
+        if (longest.length > 5) r.push(longest);
+      });
+   
+      // Способ 2: fallback по старым селекторам
+      if (r.length === 0) {
+        document.querySelectorAll('[data-widget="webReviewComments"] div[itemprop="description"], [data-widget="webListReviews"] span').forEach(el => {
+          const t = el.textContent.trim();
+          if (t.length > 15 && !r.includes(t)) r.push(t);
+        });
+      }
+      return r;
+    }
 
   async function init() {
     const productId = getProductId();
