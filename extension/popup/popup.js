@@ -2,7 +2,7 @@
  * ShopSpy Popup - Управление отслеживанием товаров
  */
 
-const API_BASE = "https://shop-spy-docker.onrender.com";
+const API_BASE = SHOPSPY_CONFIG.API_BASE;
 
 // Состояние приложения
 const state = {
@@ -597,6 +597,12 @@ async function init() {
   }
   if (elements.trackBtn) {
     elements.trackBtn.addEventListener("click", trackProduct);
+  }
+
+  // Set dashboard link from config
+  const dashLink = document.getElementById("dashboard-link");
+  if (dashLink) {
+    dashLink.href = API_BASE;
   }
 }
 

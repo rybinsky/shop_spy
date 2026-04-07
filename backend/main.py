@@ -16,7 +16,6 @@ from fastapi.responses import HTMLResponse
 from backend.api import router
 from backend.config import config
 from backend.db import init_database
-from backend.services.crawler import crawler
 from backend.telegram_bot import telegram_bot
 from backend.utils.logging import setup_logging
 
@@ -47,10 +46,6 @@ async def lifespan(app: FastAPI):
     init_database(config.database.full_path)
     logger.info("Database initialized")
 
-    # Start crawler
-    asyncio.create_task(crawler.start())
-    logger.info("Crawler started")
-
     # Start Telegram bot (in background)
     if config.telegram.enabled:
         asyncio.create_task(telegram_bot.start())
@@ -59,11 +54,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # === SHUTDOWN ===
-    logger.info("Shutting down...")
-
-    # Stop crawler
-    await crawler.stop()
-
     logger.info("Shutdown complete")
 
 

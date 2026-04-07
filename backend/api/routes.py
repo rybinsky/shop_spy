@@ -473,15 +473,6 @@ def get_products(
 # ─────────────────────────────────────────────────────────────
 
 
-@api_router.post("/crawl")
-def trigger_crawl():
-    """Manually trigger price crawl (for testing)."""
-    from backend.services.crawler import crawler
-
-    crawler.run_once_sync()
-    return SuccessResponse(status="ok", message="Обход запущен")
-
-
 @api_router.get("/health")
 def health_check():
     """Health check endpoint."""
@@ -539,7 +530,6 @@ def admin_get_detailed_stats(
         "recent_prices": recent_prices,
         "recent_alerts": recent_alerts,
         "config": {
-            "crawler_interval_hours": config.crawler.interval_seconds // 3600,
             "ai_provider": ai_analyzer.provider,
             "telegram_enabled": config.telegram.enabled,
         },

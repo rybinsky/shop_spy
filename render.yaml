@@ -2,6 +2,7 @@ services:
   - type: web
     name: shopspy
     runtime: docker
+    healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -11,6 +12,4 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: PORT
-        value: 8000
     plan: free

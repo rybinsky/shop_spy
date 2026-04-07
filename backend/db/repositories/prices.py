@@ -170,32 +170,6 @@ class PricesRepository:
             logger.debug(f"Retrieved {len(products)} tracked products")
             return products
 
-    def get_products_for_crawl(self) -> list[dict]:
-        """
-        Get unique products for crawler to check.
-
-        Returns:
-            List of products with platform, product_id, name, and url
-        """
-        with self.db.get_connection() as conn:
-            rows = conn.execute(
-                """SELECT DISTINCT platform, product_id, product_name, url
-                   FROM prices
-                   ORDER BY recorded_at DESC"""
-            ).fetchall()
-
-            # Deduplicate
-            seen = set()
-            products = []
-            for row in rows:
-                key = f"{row['platform']}:{row['product_id']}"
-                if key not in seen:
-                    seen.add(key)
-                    products.append(dict(row))
-
-            logger.info(f"Found {len(products)} products to crawl")
-            return products
-
     def get_stats(self) -> dict:
         """
         Get price tracking statistics.

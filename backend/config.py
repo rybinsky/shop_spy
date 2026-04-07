@@ -91,23 +91,6 @@ class AIConfig:
 
 
 @dataclass
-class CrawlerConfig:
-    """Crawler configuration."""
-
-    interval_seconds: int = 21600  # 6 hours
-    request_delay: float = 2.0
-    timeout: int = 10
-    max_retries: int = 3
-
-    def __post_init__(self):
-        self.interval_seconds = int(
-            os.environ.get("CRAWL_INTERVAL", self.interval_seconds)
-        )
-        self.request_delay = float(os.environ.get("REQUEST_DELAY", self.request_delay))
-        self.timeout = int(os.environ.get("CRAWLER_TIMEOUT", self.timeout))
-
-
-@dataclass
 class ServerConfig:
     """Server configuration."""
 
@@ -130,11 +113,7 @@ class Config:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     ai: AIConfig = field(default_factory=AIConfig)
-    crawler: CrawlerConfig = field(default_factory=CrawlerConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
-
-    # API base URL for extension
-    api_base_url: str = "http://localhost:8000"
 
     def __post_init__(self):
         env_str = os.environ.get("ENVIRONMENT", "development").lower()
@@ -143,14 +122,10 @@ class Config:
             if env_str in [e.value for e in Environment]
             else Environment.DEVELOPMENT
         )
-        self.api_base_url = os.environ.get("API_BASE_URL", self.api_base_url)
 
         # Override for production
         if self.env == Environment.PRODUCTION:
             self.server.debug = False
-            self.api_base_url = os.environ.get(
-                "API_BASE_URL", "https://shop-spy-docker.onrender.com"
-            )
 
     @property
     def is_production(self) -> bool:

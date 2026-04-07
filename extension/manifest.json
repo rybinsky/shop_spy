@@ -9,7 +9,7 @@
     "https://wildberries.ru/*",
     "https://www.ozon.ru/*",
     "https://ozon.ru/*",
-    "https://shop-spy-docker.onrender.com/*"
+    "https://*.onrender.com/*"
   ],
   "content_scripts": [
     {
@@ -17,7 +17,7 @@
         "https://www.wildberries.ru/*",
         "https://wildberries.ru/*"
       ],
-      "js": ["content/shared.js", "content/wb.js"],
+      "js": ["config.js", "content/shared.js", "content/wb.js"],
       "css": ["content/shopspy.css"],
       "run_at": "document_idle"
     },
@@ -26,7 +26,7 @@
         "https://www.ozon.ru/*",
         "https://ozon.ru/*"
       ],
-      "js": ["content/shared.js", "content/ozon.js"],
+      "js": ["config.js", "content/shared.js", "content/ozon.js"],
       "css": ["content/shopspy.css"],
       "run_at": "document_idle"
     }

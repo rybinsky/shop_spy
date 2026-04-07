@@ -1,16 +1,14 @@
 # ShopSpy Makefile
-# Быстрые команды для разработки и сборки
 
-.PHONY: help run dev install clean build-extension pack-extension test crawl db-stats db-clean check-deploy
+.PHONY: help run dev install clean build-extension pack-extension db-stats db-clean check-deploy
 
 # Дефолтная цель
 help:
-	@echo "🔍 ShopSpy - доступные команды:"
+	@echo "🔍 ShopSpy — доступные команды:"
 	@echo ""
 	@echo "  make install          - Установить зависимости"
 	@echo "  make run              - Запустить сервер (production)"
 	@echo "  make dev              - Запустить сервер (development с автоперезагрузкой)"
-	@echo "  make crawl            - Запустить краулер вручную"
 	@echo ""
 	@echo "  make build-extension  - Собрать расширение в dist/extension/"
 	@echo "  make pack-extension   - Создать ZIP-архив расширения"
@@ -20,6 +18,10 @@ help:
 	@echo "  make db-clean         - Очистить старые записи"
 	@echo "  make check-deploy     - Проверка готовности к деплою"
 	@echo ""
+
+# ============================================
+# Сервер
+# ============================================
 
 # Установка зависимостей
 install:
@@ -32,10 +34,6 @@ run:
 # Запуск сервера (development)
 dev:
 	ENVIRONMENT=development uvicorn backend.main:app --reload --port 8000
-
-# Запуск краулера вручную
-crawl:
-	curl -X POST http://localhost:8000/api/crawl
 
 # ============================================
 # Расширение
@@ -62,7 +60,6 @@ pack-extension: build-extension
 # Очистка
 # ============================================
 
-# Очистить временные файлы
 clean:
 	@echo "🧹 Очистка..."
 	@rm -rf dist/
@@ -79,14 +76,12 @@ clean:
 # База данных
 # ============================================
 
-# Показать статистику БД
 db-stats:
 	@sqlite3 data/shopspy.db "SELECT 'Пользователи:', COUNT(*) FROM telegram_users WHERE is_active=1;"
 	@sqlite3 data/shopspy.db "SELECT 'Отслеживания:', COUNT(*) FROM price_alerts WHERE is_active=1;"
 	@sqlite3 data/shopspy.db "SELECT 'Товары:', COUNT(DISTINCT platform || product_id) FROM prices;"
 	@sqlite3 data/shopspy.db "SELECT 'Записи цен:', COUNT(*) FROM prices;"
 
-# Очистить старые записи (старше 365 дней)
 db-clean:
 	@echo "🗑️  Удаление записей старше 365 дней..."
 	@sqlite3 data/shopspy.db "DELETE FROM prices WHERE recorded_at < datetime('now', '-365 days');"
@@ -97,16 +92,27 @@ db-clean:
 # Деплой
 # ============================================
 
-# Проверка готовности к деплою
 check-deploy:
 	@echo "🔍 Проверка готовности к деплою..."
-	@test -f requirements.txt && echo "✅ requirements.txt" || echo "❌ requirements.txt не найден"
-	@test -f backend/main.py && echo "✅ backend/main.py" || echo "❌ backend/main.py не найден"
-	@test -d extension && echo "✅ extension/" || echo "❌ extension/ не найден"
-	@test -f templates/dashboard.html && echo "✅ templates/dashboard.html" || echo "❌ dashboard.html не найден"
-	@test -f templates/admin.html && echo "✅ templates/admin.html" || echo "❌ admin.html не найден"
 	@echo ""
-	@echo "📋 Переменные окружения для Render:"
-	@echo "   TELEGRAM_BOT_TOKEN=ваш_токен"
-	@echo "   GEMINI_API_KEY=ваш_ключ"
-	@echo "   ENVIRONMENT=production"
+	@echo "── Файлы ──"
+	@test -f requirements.txt   && echo "  ✅ requirements.txt"   || echo "  ❌ requirements.txt"
+	@test -f Dockerfile         && echo "  ✅ Dockerfile"         || echo "  ❌ Dockerfile"
+	@test -f backend/main.py    && echo "  ✅ backend/main.py"    || echo "  ❌ backend/main.py"
+	@test -f backend/config.py  && echo "  ✅ backend/config.py"  || echo "  ❌ backend/config.py"
+	@test -d extension          && echo "  ✅ extension/"         || echo "  ❌ extension/"
+	@test -f extension/config.js && echo "  ✅ extension/config.js" || echo "  ❌ extension/config.js (API_BASE!)"
+	@test -f templates/index.html && echo "  ✅ templates/index.html" || echo "  ⚠️  templates/index.html (optional)"
+	@test -f templates/admin.html && echo "  ✅ templates/admin.html" || echo "  ⚠️  templates/admin.html (optional)"
+	@echo ""
+	@echo "── Переменные окружения для Render.com ──"
+	@echo "  ENVIRONMENT=production          (обязательно)"
+	@echo "  TELEGRAM_BOT_TOKEN=...          (для уведомлений)"
+	@echo "  GEMINI_API_KEY=...              (для AI-анализа отзывов)"
+	@echo "  ANTHROPIC_API_KEY=...           (альтернатива Gemini)"
+	@echo ""
+	@echo "  PORT задаётся Render автоматически."
+	@echo ""
+	@echo "── Расширение ──"
+	@echo "  Убедитесь, что API_BASE в extension/config.js"
+	@echo "  указывает на ваш Render URL."

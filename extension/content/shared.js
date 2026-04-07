@@ -4,7 +4,7 @@
  */
 
 const SHOPSPY = {
-  API_BASE: "https://shop-spy-docker.onrender.com",
+  API_BASE: SHOPSPY_CONFIG.API_BASE,
   panelCreated: false,
   currentProductId: null,
   currentPlatform: null,
