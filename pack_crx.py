@@ -1,161 +1,146 @@
 """
-Упаковщик расширения ShopSpy в формат CRX3 для Яндекс.Браузера.
+ShopSpy — Extension Packager
 
-Использование:
+Builds the extension into dist/:
+  dist/shopspy.zip  — for Chrome / Yandex Browser (unpack & load)
+  dist/shopspy.crx  — for Yandex Browser (drag & drop), requires `cryptography`
+
+Usage:
     python pack_crx.py
-
-Результат: файл shopspy.crx в корне проекта
 """
 
 import os
 import struct
-import hashlib
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
-# Пытаемся использовать cryptography, если есть
+# ── Paths (all output goes to dist/) ──────────────────────────
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+EXTENSION_DIR = PROJECT_ROOT / "extension"
+DIST_DIR = PROJECT_ROOT / "dist"
+OUTPUT_ZIP = DIST_DIR / "shopspy.zip"
+OUTPUT_CRX = DIST_DIR / "shopspy.crx"
+KEY_FILE = PROJECT_ROOT / "shopspy.pem"
+
+# ── Optional: cryptography for CRX signing ────────────────────
+
 try:
-    from cryptography.hazmat.primitives.asymmetric import rsa, padding, utils
+    from cryptography.hazmat.primitives.asymmetric import rsa, padding
     from cryptography.hazmat.primitives import hashes, serialization
+
     HAS_CRYPTO = True
 except ImportError:
     HAS_CRYPTO = False
 
 
-EXTENSION_DIR = os.path.join(os.path.dirname(__file__), "extension")
-OUTPUT_CRX = os.path.join(os.path.dirname(__file__), "shopspy.crx")
-OUTPUT_ZIP = os.path.join(os.path.dirname(__file__), "shopspy.zip")
-KEY_FILE = os.path.join(os.path.dirname(__file__), "shopspy.pem")
+# ── Helpers ────────────────────────────────────────────────────
 
 
-def make_zip(ext_dir: str, zip_path: str):
-    """Собирает содержимое extension/ в zip."""
-    with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zf:
-        base = Path(ext_dir)
-        for file_path in sorted(base.rglob('*')):
-            if file_path.is_file():
-                arcname = file_path.relative_to(base)
-                zf.write(file_path, arcname)
-    print(f"  ZIP создан: {zip_path}")
+def make_zip(ext_dir: Path, zip_path: Path) -> None:
+    """Pack extension/ into a ZIP archive."""
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
+        for file_path in sorted(ext_dir.rglob("*")):
+            if file_path.is_file() and not file_path.name.startswith("."):
+                zf.write(file_path, file_path.relative_to(ext_dir))
+    size_kb = zip_path.stat().st_size / 1024
+    print(f"  ✅ ZIP: {zip_path}  ({size_kb:.1f} KB)")
 
 
-def make_crx3(ext_dir: str, crx_path: str, key_path: str):
-    """Упаковывает расширение в CRX3 формат."""
-
+def make_crx(ext_dir: Path, crx_path: Path, key_path: Path) -> bool:
+    """Pack extension/ into a signed CRX2 file (Yandex Browser compatible)."""
     if not HAS_CRYPTO:
-        print("\n  Библиотека cryptography не установлена.")
-        print("  Установите: pip install cryptography")
-        print("  Или используйте ZIP-способ установки (см. ниже).\n")
+        print("  ⚠️  cryptography не установлена — CRX не создан.")
+        print("     pip install cryptography")
         return False
 
-    # Генерируем или загружаем ключ
-    if os.path.exists(key_path):
-        with open(key_path, 'rb') as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-        print("  Ключ загружен из", key_path)
+    # Load or generate RSA key
+    if key_path.exists():
+        private_key = serialization.load_pem_private_key(
+            key_path.read_bytes(), password=None
+        )
+        print(f"  Ключ загружен: {key_path}")
     else:
         private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
+            public_exponent=65537, key_size=2048
         )
-        with open(key_path, 'wb') as f:
-            f.write(private_key.private_bytes(
+        key_path.write_bytes(
+            private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            ))
-        print("  Ключ сгенерирован:", key_path)
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+        )
+        print(f"  Ключ сгенерирован: {key_path}")
 
-    # Создаем ZIP
-    zip_path = crx_path + ".zip"
-    make_zip(ext_dir, zip_path)
+    # Build ZIP in memory
+    tmp_zip = crx_path.with_suffix(".crx.zip")
+    make_zip(ext_dir, tmp_zip)
+    zip_data = tmp_zip.read_bytes()
+    tmp_zip.unlink()
 
-    with open(zip_path, 'rb') as f:
-        zip_data = f.read()
-
-    # Публичный ключ в DER
+    # Public key (DER) + signature
     public_key_der = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
+    signature = private_key.sign(zip_data, padding.PKCS1v15(), hashes.SHA256())
 
-    # Подпись
-    signature = private_key.sign(
-        zip_data,
-        padding.PKCS1v15(),
-        hashes.SHA256(),
-    )
-
-    # CRX3 header
-    # Формат: magic(4) + version(4) + header_length(4) + header + zip
-    # Используем упрощенный CRX2-совместимый формат, который Яндекс.Браузер тоже принимает
-
-    magic = b'Cr24'
-    version = struct.pack('<I', 2)  # CRX2 формат, совместим с Яндекс.Браузером
-    pubkey_len = struct.pack('<I', len(public_key_der))
-    sig_len = struct.pack('<I', len(signature))
-
-    with open(crx_path, 'wb') as f:
-        f.write(magic)
-        f.write(version)
-        f.write(pubkey_len)
-        f.write(sig_len)
+    # Write CRX2 binary
+    crx_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(crx_path, "wb") as f:
+        f.write(b"Cr24")
+        f.write(struct.pack("<I", 2))  # CRX version 2
+        f.write(struct.pack("<I", len(public_key_der)))
+        f.write(struct.pack("<I", len(signature)))
         f.write(public_key_der)
         f.write(signature)
         f.write(zip_data)
 
-    # Удаляем временный zip
-    os.remove(zip_path)
-
-    size_kb = os.path.getsize(crx_path) / 1024
-    print(f"  CRX создан: {crx_path} ({size_kb:.1f} KB)")
+    size_kb = crx_path.stat().st_size / 1024
+    print(f"  ✅ CRX: {crx_path}  ({size_kb:.1f} KB)")
     return True
+
+
+# ── Main ───────────────────────────────────────────────────────
 
 
 def main():
     print()
     print("=" * 50)
-    print("  ShopSpy - Упаковщик расширения")
+    print("  ShopSpy — Extension Packager")
     print("=" * 50)
     print()
 
-    if not os.path.exists(EXTENSION_DIR):
-        print(f"  Ошибка: папка {EXTENSION_DIR} не найдена!")
+    if not EXTENSION_DIR.exists():
+        print(f"  ❌ Папка {EXTENSION_DIR} не найдена!")
         return
 
-    # Всегда создаем ZIP (работает без доп. библиотек)
-    print("[1] Создаю ZIP-архив...")
+    print("[1] ZIP-архив...")
     make_zip(EXTENSION_DIR, OUTPUT_ZIP)
 
-    # Пробуем CRX
-    print("\n[2] Создаю CRX-файл...")
-    crx_ok = make_crx3(EXTENSION_DIR, OUTPUT_CRX, KEY_FILE)
+    print()
+    print("[2] CRX-файл...")
+    crx_ok = make_crx(EXTENSION_DIR, OUTPUT_CRX, KEY_FILE)
 
     print()
     print("=" * 50)
-    print("  Инструкция по установке в Яндекс.Браузер")
+    print("  Установка расширения")
     print("=" * 50)
     print()
-    print("  Способ 1 (ZIP - проще всего):")
-    print("    1. Распакуйте shopspy.zip в папку")
-    print("    2. Откройте browser://tune")
-    print("    3. Перетащите ПАПКУ в окно браузера")
+    print("  Chrome / Edge:")
+    print("    1. chrome://extensions/ → Режим разработчика")
+    print("    2. «Загрузить распакованное» → папка extension/")
     print()
-
+    print("  Яндекс.Браузер (ZIP):")
+    print("    1. Распакуйте dist/shopspy.zip в папку")
+    print("    2. browser://tune → перетащите ПАПКУ")
+    print()
     if crx_ok:
-        print("  Способ 2 (CRX):")
-        print("    1. Откройте browser://tune")
-        print("    2. Перетащите файл shopspy.crx в окно браузера")
-        print("    3. Нажмите 'Установить расширение'")
+        print("  Яндекс.Браузер (CRX):")
+        print("    1. browser://tune → перетащите dist/shopspy.crx")
         print()
-
-    print("  Способ 3 (для Chrome/Edge):")
-    print("    1. Откройте chrome://extensions/")
-    print("    2. Включите 'Режим разработчика'")
-    print("    3. 'Загрузить распакованное' -> папка extension/")
-    print()
-    print("  Не забудьте запустить бэкенд: python backend/main.py")
-    print()
 
 
 if __name__ == "__main__":

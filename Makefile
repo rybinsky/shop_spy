@@ -1,6 +1,6 @@
 # ShopSpy Makefile
 
-.PHONY: help run dev install clean build-extension pack-extension db-stats db-clean check-deploy
+.PHONY: help run dev install clean pack-extension db-stats db-clean check-deploy
 
 # Дефолтная цель
 help:
@@ -10,8 +10,7 @@ help:
 	@echo "  make run              - Запустить сервер (production)"
 	@echo "  make dev              - Запустить сервер (development с автоперезагрузкой)"
 	@echo ""
-	@echo "  make build-extension  - Собрать расширение в dist/extension/"
-	@echo "  make pack-extension   - Создать ZIP-архив расширения"
+	@echo "  make pack-extension   - Собрать расширение (dist/shopspy.zip + .crx)"
 	@echo ""
 	@echo "  make clean            - Очистить временные файлы"
 	@echo "  make db-stats         - Показать статистику БД"
@@ -39,22 +38,9 @@ dev:
 # Расширение
 # ============================================
 
-# Сборка расширения в dist/
-build-extension:
-	@echo "📦 Сборка расширения..."
-	@rm -rf dist/extension
-	@mkdir -p dist/extension
-	@cp -r extension/* dist/extension/
-	@echo "✅ Расширение собрано в dist/extension/"
-	@echo "   Установите в Chrome: chrome://extensions/ → Загрузить распакованное"
-
-# Создание ZIP-архива расширения
-pack-extension: build-extension
-	@echo "🗜️  Создание ZIP-архива..."
-	@cd dist && rm -f shopspy-extension.zip
-	@cd dist/extension && zip -r ../shopspy-extension.zip .
-	@echo "✅ Архив создан: dist/shopspy-extension.zip"
-	@ls -lh dist/shopspy-extension.zip
+# Собрать расширение: dist/shopspy.zip + dist/shopspy.crx
+pack-extension:
+	python pack_crx.py
 
 # ============================================
 # Очистка
