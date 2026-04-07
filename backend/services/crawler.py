@@ -166,7 +166,11 @@ class CrawlerService:
                 batch = api_failed[i : i + BATCH_SIZE]
                 batch_ids = [p["product_id"] for p in batch]
                 try:
-                    results_map = await get_scraper().fetch_prices_batch(platform, batch_ids)
+                    scraper = get_scraper()
+                    if platform == "wb":
+                        results_map = await scraper.fetch_wb_batch(batch_ids)
+                    else:
+                        results_map = await scraper.fetch_ozon_batch(batch_ids)
                     for product in batch:
                         pid = product["product_id"]
                         price_data = results_map.get(pid)

@@ -4,4 +4,3 @@ httpx>=0.28.0
 pydantic>=2.10.0
 aiogram>=3.0.0
 playwright>=1.40.0
-xvfbwrapper>=0.2.9

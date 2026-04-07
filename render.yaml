@@ -2,8 +2,6 @@ services:
   - type: web
     name: shopspy
     runtime: docker
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m backend.main
     envVars:
       - key: ENVIRONMENT
         value: production
