@@ -4,7 +4,6 @@ ShopSpy - Telegram Bot Module
 Handles Telegram bot for price drop notifications.
 """
 
-import asyncio
 import logging
 from typing import Optional
 

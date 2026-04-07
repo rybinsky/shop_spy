@@ -14,6 +14,7 @@
 | 📱 **Telegram-уведомления** | Оповещения о снижении цен |
 | 🎯 **Целевые цены** | Уведомление когда цена достигнет желаемого уровня |
 | 🔄 **Сравнение площадок** | Быстрый поиск товара на другом маркетплейсе |
+| ⚙️ **Панель разработчика** | Мониторинг пользователей, товаров и статистики |
 
 ---
 
@@ -59,11 +60,12 @@ python -m backend.main
 3. Нажмите **Загрузить распакованное расширение**
 4. Выберите папку `extension/`
 
-### 6. Привязка Telegram
+### 6. Использование
 
-1. Откройте http://localhost:8000
-2. Введите ваш Chat ID в разделе "Telegram уведомления"
-3. Нажмите "Привязать"
+1. Откройте любой товар на Wildberries или Ozon
+2. Нажмите на иконку расширения ShopSpy
+3. Авторизуйтесь через Telegram (введите Chat ID)
+4. Нажмите "Отслеживать" для получения уведомлений о снижении цены
 
 ---
 
@@ -77,6 +79,8 @@ python -m backend.main
 | `GEMINI_API_KEY` | API ключ Google Gemini (бесплатно) | — |
 | `ANTHROPIC_API_KEY` | API ключ Claude (платно) | — |
 | `CRAWL_INTERVAL` | Интервал проверки цен (сек) | `21600` (6 ч) |
+| `CRAWLER_TIMEOUT` | Таймаут запросов краулера (сек) | `10` |
+| `REQUEST_DELAY` | Задержка между запросами (сек) | `2.0` |
 | `RATE_LIMIT_PER_IP` | Лимит AI-запросов в день на IP | `10` |
 | `RATE_LIMIT_GLOBAL` | Глобальный лимит AI-запросов | `200` |
 | `ENVIRONMENT` | Окружение: `development` / `production` | `development` |
@@ -99,40 +103,32 @@ python -m backend.main
 
 ### Панель расширения
 
-При открытии товара на WB или Ozon появляется панель ShopSpy:
+При открытии товара на WB или Ozon нажмите на иконку расширения:
 
 ```
 ┌─────────────────────────────────┐
-│ 🔍 ShopSpy                   [−]│
+│ 🔍 ShopSpy                      │
+│    Отслеживание цен             │
 ├─────────────────────────────────┤
-│ 💰 Текущая цена                 │
-│    1 299 ₽  1 599 ₽  −19%      │
-│                                 │
-│ 📊 Анализ цены                  │
-│    ✅ Хорошая цена!             │
-│                                 │
-│ 📈 История цен                  │
-│    [график]                     │
-│                                 │
-│ [🔔 Отслеживать]                │
-│ [🤖 Анализировать отзывы]       │
+│ 📍 Текущий товар                │
+│ ┌─────────────────────────────┐ │
+│ │ 🟣 Wildberries              │ │
+│ │ Название товара             │ │
+│ │ 1 299 ₽                     │ │
+│ │ [👁️ Отслеживать]            │ │
+│ └─────────────────────────────┘ │
+├─────────────────────────────────┤
+│ 📦 Мои товары                   │
+│ · 🟣 Товар 1      1 299 ₽      │
+│ · 🔵 Товар 2        999 ₽      │
 └─────────────────────────────────┘
 ```
-
-### Вердикты по цене
-
-| Иконка | Статус | Описание |
-|--------|--------|----------|
-| ✅ | Хорошая цена | Цена ниже средней или равна минимуму |
-| ⚠️ | Дорого | Цена выше средней |
-| 🚨 | Фейковая скидка | Цена была завышена перед "скидкой" |
-| ℹ️ | Обычная цена | Цена в пределах нормы |
 
 ### Команды Telegram-бота
 
 | Команда | Описание |
 |---------|----------|
-| `/start` | Показать Chat ID |
+| `/start` | Показать Chat ID и зарегистрироваться |
 | `/list` | Отслеживаемые товары |
 | `/stop` | Отключить уведомления |
 | `/help` | Справка |
@@ -146,32 +142,25 @@ python -m backend.main
 ```
 shopspy/
 ├── backend/
-│   ├── __init__.py
 │   ├── main.py              # Точка входа FastAPI
 │   ├── config.py            # Конфигурация (dataclasses)
 │   ├── api/
-│   │   ├── __init__.py
 │   │   └── routes.py        # API endpoints
 │   ├── db/
-│   │   ├── __init__.py
 │   │   ├── database.py      # SQLite connection manager
 │   │   └── repositories/
 │   │       ├── prices.py    # Репозиторий цен
 │   │       ├── alerts.py    # Репозиторий уведомлений
 │   │       └── users.py     # Репозиторий пользователей
 │   ├── models/
-│   │   ├── __init__.py
 │   │   └── schemas.py       # Pydantic модели
 │   ├── services/
-│   │   ├── __init__.py
 │   │   ├── crawler.py       # Фоновый сборщик цен
 │   │   ├── price_analyzer.py # Анализ цен
 │   │   └── ai_analyzer.py   # AI-анализ отзывов
 │   ├── telegram_bot/
-│   │   ├── __init__.py
 │   │   └── bot.py           # Telegram бот
 │   └── utils/
-│       ├── __init__.py
 │       ├── logging.py       # Настройка логирования
 │       └── marketplace_api.py # API маркетплейсов
 ├── extension/
@@ -182,131 +171,81 @@ shopspy/
 │   │   ├── ozon.js          # Ozon
 │   │   └── shopspy.css
 │   └── popup/
-│       └── popup.html
+│       ├── popup.html
+│       └── popup.js
 ├── templates/
-│   └── dashboard.html
+│   ├── dashboard.html       # Пользовательский дашборд
+│   └── admin.html           # Панель разработчика
 ├── data/                     # SQLite база
 ├── requirements.txt
 └── README.md
 ```
 
-### Архитектура
+### Панель разработчика
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        FastAPI App                           │
-│  main.py → lifespan → init_database → start_crawler         │
-│                         → start_telegram_bot                 │
-├─────────────────────────────────────────────────────────────┤
-│  API Layer (api/routes.py)                                   │
-│  ├── /api/price        → PricesRepository                    │
-│  ├── /api/reviews      → AIAnalyzer                          │
-│  ├── /api/telegram     → UsersRepository                     │
-│  └── /api/alerts       → AlertsRepository                    │
-├─────────────────────────────────────────────────────────────┤
-│  Services                                                    │
-│  ├── CrawlerService    → периодическая проверка цен          │
-│  ├── PriceAnalyzer     → анализ истории цен                  │
-│  └── AIAnalyzer        → Gemini/Claude API                   │
-├─────────────────────────────────────────────────────────────┤
-│  Data Layer                                                  │
-│  ├── Database          → SQLite connection manager           │
-│  └── Repositories      → prices, alerts, users               │
-├─────────────────────────────────────────────────────────────┤
-│  External                                                    │
-│  ├── TelegramBot       → aiogram 3.x                        │
-│  └── MarketplaceAPI    → httpx async client                  │
-└─────────────────────────────────────────────────────────────┘
-```
+Доступна по адресу `/admin`. Позволяет:
 
-### Добавление нового маркетплейса
+- **Просматривать статистику**: пользователи, товары, записи цен, отслеживания
+- **Мониторить конфигурацию**: интервал краулера, AI провайдер, статус Telegram
+- **Управлять пользователями**: список всех пользователей, их статусы, количество отслеживаний
+- **Просматривать отслеживания**: все активные алерты с ценами и целевыми значениями
+- **Следить за активностью**: последние записи цен и созданные отслеживания
+- **Запускать краулер вручную**: кнопка для принудительного обновления цен
 
-**1. Content script** `extension/content/ym.js`:
+### API Endpoints
 
-```javascript
-(function() {
-    'use strict';
-    const PLATFORM = 'ym';
+#### Пользовательские
 
-    function getProductId() {
-        const m = window.location.pathname.match(/\/product\/(\d+)/);
-        return m ? m[1] : null;
-    }
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| `GET` | `/api/price/history` | История цен товара |
+| `POST` | `/api/price` | Записать цену |
+| `POST` | `/api/reviews/analyze` | AI-анализ отзывов |
+| `POST` | `/api/alerts` | Создать отслеживание |
+| `GET` | `/api/alerts` | Список отслеживаний |
+| `DELETE` | `/api/alerts` | Удалить отслеживание |
+| `GET` | `/api/telegram/status` | Статус пользователя |
+| `GET` | `/api/stats` | Общая статистика |
+| `GET` | `/api/products` | Список товаров |
 
-    function getCurrentPrice() {
-        const el = document.querySelector('[data-auto="price"]');
-        return el ? parseFloat(el.textContent.replace(/[^\d]/g, '')) : null;
-    }
+#### Административные
 
-    function getProductName() {
-        const el = document.querySelector('h1');
-        return el ? el.textContent.trim() : '';
-    }
-
-    async function init() {
-        const productId = getProductId();
-        if (!productId) return;
-
-        SHOPSPY.createPanel();
-        const price = getCurrentPrice();
-        const name = getProductName();
-
-        if (price) {
-            await SHOPSPY.sendPrice(PLATFORM, productId, name, price);
-        }
-
-        const h = await SHOPSPY.getHistory(PLATFORM, productId);
-        SHOPSPY.renderPanel({
-            history: h.history,
-            analysis: h.analysis,
-            productName: name,
-            price,
-            platform: PLATFORM,
-            productId
-        });
-    }
-
-    setTimeout(init, 2000);
-})();
-```
-
-**2. Добавить в** `extension/manifest.json`:
-
-```json
-{
-    "content_scripts": [{
-        "matches": ["https://market.yandex.ru/*"],
-        "js": ["content/shared.js", "content/ym.js"],
-        "css": ["content/shopspy.css"]
-    }],
-    "host_permissions": ["https://market.yandex.ru/*"]
-}
-```
-
-**3. Добавить API** в `backend/utils/marketplace_api.py`:
-
-```python
-async def fetch_ym_price(self, client: httpx.AsyncClient, product_id: str) -> Optional[dict]:
-    url = f"https://market.yandex.ru/api/product/{product_id}"
-    # ... реализация
-```
-
-### Запуск в режиме разработки
-
-```bash
-# С отладочными логами
-ENVIRONMENT=development python -m backend.main
-
-# С автоперезагрузкой
-uvicorn backend.main:app --reload --port 8000
-
-# Тестовый обход цен
-curl -X POST http://localhost:8000/api/crawl
-```
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| `GET` | `/api/admin/stats` | Детальная статистика |
+| `GET` | `/api/admin/users` | Все пользователи |
+| `GET` | `/api/admin/alerts` | Все отслеживания |
+| `POST` | `/api/crawl` | Запустить краулер |
+| `GET` | `/health` | Health check |
+| `HEAD` | `/health` | Health check (UptimeRobot) |
 
 ---
 
 ## 🚢 Деплой на Render.com
+
+### Настройка
+
+1. Создайте Web Service на [Render](https://render.com)
+2. Подключите GitHub репозиторий
+3. Добавьте переменные окружения:
+   - `TELEGRAM_BOT_TOKEN`
+   - `GEMINI_API_KEY`
+   - `ENVIRONMENT=production`
+
+### Проблема Cold Start
+
+На бесплатном тарифе Render сервер "засыпает" после 15 минут неактивности. Первый запрос занимает 30-60 секунд.
+
+### Решение: UptimeRobot (бесплатно)
+
+1. Зарегистрируйтесь на [UptimeRobot](https://uptimerobot.com)
+2. Создайте монитор типа **HTTP(s)**
+3. URL: `https://ваш-приложение.onrender.com/health`
+4. Interval: **5 минут**
+
+Сервер будет постоянно просыпаться по пингам и не уйдёт в сон.
+
+**Важно:** Бесплатный тариф Render даёт 750 часов/месяц, чего хватает на весь месяц (720 часов).
 
 ### render.yaml
 
@@ -328,25 +267,15 @@ services:
         value: 8000
 ```
 
-### Шаги
+### После деплоя
 
-1. Создайте Web Service на Render
-2. Подключите GitHub репозиторий
-3. Добавьте переменные окружения:
-   - `TELEGRAM_BOT_TOKEN`
-   - `GEMINI_API_KEY`
-   - `ENVIRONMENT=production`
-
-4. Обновите `extension/content/shared.js`:
+Обновите `extension/popup/popup.js`:
 
 ```javascript
-const SHOPSPY = {
-    API_BASE: 'https://your-app.onrender.com',
-    // ...
-};
+const API_BASE = "https://ваш-приложение.onrender.com";
 ```
 
-5. Пересоберите расширение и установите заново
+Пересоберите и переустановите расширение.
 
 ---
 

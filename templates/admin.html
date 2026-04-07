@@ -1,0 +1,1049 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>ShopSpy - Панель разработчика</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg: #0a0a12;
+                --card: #12121f;
+                --card-hover: #1a1a2e;
+                --border: rgba(255, 255, 255, 0.06);
+                --accent: #e94560;
+                --green: #4caf50;
+                --orange: #ff9800;
+                --blue: #2196f3;
+                --purple: #9c27b0;
+                --telegram: #0088cc;
+                --text: #e0e0e0;
+                --muted: #666;
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: "Outfit", sans-serif;
+                min-height: 100vh;
+            }
+
+            /* Navigation */
+            .nav {
+                background: var(--card);
+                border-bottom: 1px solid var(--border);
+                padding: 0 24px;
+                display: flex;
+                align-items: center;
+                gap: 32px;
+                height: 56px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            .nav-brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 700;
+                font-size: 16px;
+                color: #fff;
+            }
+            .nav-brand-icon {
+                font-size: 20px;
+            }
+            .nav-links {
+                display: flex;
+                gap: 4px;
+                margin-left: auto;
+            }
+            .nav-link {
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--muted);
+                text-decoration: none;
+                transition: all 0.15s;
+            }
+            .nav-link:hover {
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text);
+            }
+            .nav-link.active {
+                background: rgba(233, 69, 96, 0.15);
+                color: var(--accent);
+            }
+
+            /* Container */
+            .container {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 24px;
+            }
+
+            /* Stats Grid */
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(6, 1fr);
+                gap: 12px;
+                margin-bottom: 24px;
+            }
+            .stat-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 16px 20px;
+                transition: all 0.2s;
+            }
+            .stat-card:hover {
+                border-color: rgba(255, 255, 255, 0.1);
+                transform: translateY(-2px);
+            }
+            .stat-label {
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: 1.2px;
+                color: var(--muted);
+                margin-bottom: 6px;
+            }
+            .stat-value {
+                font-size: 28px;
+                font-weight: 700;
+                font-family: "JetBrains Mono", monospace;
+                color: #fff;
+            }
+            .stat-value.accent {
+                color: var(--accent);
+            }
+            .stat-value.green {
+                color: var(--green);
+            }
+            .stat-value.blue {
+                color: var(--blue);
+            }
+            .stat-value.orange {
+                color: var(--orange);
+            }
+            .stat-value.telegram {
+                color: var(--telegram);
+            }
+
+            /* Section */
+            .section {
+                margin-bottom: 24px;
+            }
+            .section-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
+            }
+            .section-title {
+                font-size: 15px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .section-badge {
+                font-size: 10px;
+                padding: 3px 8px;
+                border-radius: 10px;
+                background: rgba(233, 69, 96, 0.2);
+                color: var(--accent);
+                font-weight: 600;
+            }
+
+            /* Cards Grid */
+            .cards-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            .card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            .card-header {
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .card-title {
+                font-size: 13px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .card-body {
+                padding: 0;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            .card-body::-webkit-scrollbar {
+                width: 6px;
+            }
+            .card-body::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 3px;
+            }
+
+            /* Table */
+            .data-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+            }
+            .data-table th {
+                text-align: left;
+                padding: 10px 14px;
+                font-weight: 600;
+                color: var(--muted);
+                text-transform: uppercase;
+                font-size: 10px;
+                letter-spacing: 0.8px;
+                background: rgba(255, 255, 255, 0.02);
+                position: sticky;
+                top: 0;
+            }
+            .data-table td {
+                padding: 10px 14px;
+                border-top: 1px solid var(--border);
+            }
+            .data-table tr:hover td {
+                background: rgba(255, 255, 255, 0.02);
+            }
+
+            /* Platform Badge */
+            .platform-badge {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+            }
+            .platform-badge.wb {
+                background: rgba(203, 17, 171, 0.2);
+                color: #e940c5;
+            }
+            .platform-badge.ozon {
+                background: rgba(0, 91, 255, 0.2);
+                color: #0088ff;
+            }
+
+            /* Status Badge */
+            .status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 600;
+            }
+            .status-badge.active {
+                background: rgba(76, 175, 80, 0.15);
+                color: #81c784;
+            }
+            .status-badge.inactive {
+                background: rgba(255, 152, 0, 0.15);
+                color: #ffb74d;
+            }
+            .status-badge::before {
+                content: "";
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: currentColor;
+            }
+
+            /* Config Grid */
+            .config-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 12px;
+                padding: 14px;
+            }
+            .config-item {
+                padding: 12px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 8px;
+            }
+            .config-label {
+                font-size: 10px;
+                color: var(--muted);
+                margin-bottom: 4px;
+            }
+            .config-value {
+                font-size: 14px;
+                font-weight: 600;
+                font-family: "JetBrains Mono", monospace;
+            }
+            .config-value.on {
+                color: var(--green);
+            }
+            .config-value.off {
+                color: var(--orange);
+            }
+
+            /* User Avatar */
+            .user-cell {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .user-avatar {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: var(--card-hover);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: 600;
+                overflow: hidden;
+                color: var(--accent);
+            }
+            .user-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .user-info {
+                display: flex;
+                flex-direction: column;
+            }
+            .user-name {
+                font-weight: 500;
+            }
+            .user-id {
+                font-size: 10px;
+                color: var(--muted);
+                font-family: "JetBrains Mono", monospace;
+            }
+
+            /* Price */
+            .price {
+                font-family: "JetBrains Mono", monospace;
+                font-weight: 600;
+            }
+            .price-old {
+                text-decoration: line-through;
+                color: var(--muted);
+                font-weight: 400;
+                margin-left: 6px;
+            }
+
+            /* Time */
+            .time {
+                font-size: 10px;
+                color: var(--muted);
+                font-family: "JetBrains Mono", monospace;
+            }
+
+            /* Product Name */
+            .product-name {
+                max-width: 180px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Empty State */
+            .empty-state {
+                padding: 40px 20px;
+                text-align: center;
+                color: var(--muted);
+            }
+            .empty-state-icon {
+                font-size: 32px;
+                margin-bottom: 8px;
+                opacity: 0.5;
+            }
+
+            /* Actions */
+            .actions {
+                display: flex;
+                gap: 8px;
+                padding: 14px;
+                border-top: 1px solid var(--border);
+            }
+            .btn {
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s;
+                border: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .btn-primary {
+                background: var(--accent);
+                color: #fff;
+            }
+            .btn-primary:hover {
+                background: #d13a52;
+            }
+            .btn-primary:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .btn-secondary {
+                background: rgba(255, 255, 255, 0.06);
+                color: var(--text);
+                border: 1px solid var(--border);
+            }
+            .btn-secondary:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            /* Activity Feed */
+            .activity-feed {
+                padding: 8px 0;
+            }
+            .activity-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 10px 14px;
+                border-bottom: 1px solid var(--border);
+            }
+            .activity-item:last-child {
+                border-bottom: none;
+            }
+            .activity-icon {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+            }
+            .activity-icon.price {
+                background: rgba(33, 150, 243, 0.15);
+            }
+            .activity-icon.alert {
+                background: rgba(233, 69, 96, 0.15);
+            }
+            .activity-icon.user {
+                background: rgba(0, 136, 204, 0.15);
+            }
+            .activity-content {
+                flex: 1;
+                min-width: 0;
+            }
+            .activity-text {
+                font-size: 12px;
+                line-height: 1.4;
+            }
+            .activity-time {
+                font-size: 10px;
+                color: var(--muted);
+                margin-top: 2px;
+            }
+
+            /* Error Banner */
+            .error-banner {
+                background: rgba(233, 69, 96, 0.15);
+                border: 1px solid rgba(233, 69, 96, 0.3);
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-bottom: 16px;
+                display: none;
+                align-items: center;
+                gap: 10px;
+            }
+            .error-banner.show {
+                display: flex;
+            }
+            .error-banner-text {
+                flex: 1;
+                font-size: 13px;
+            }
+
+            /* Responsive */
+            @media (max-width: 1200px) {
+                .stats-grid {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+                .cards-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            @media (max-width: 768px) {
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                .nav-links {
+                    display: none;
+                }
+                .config-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-brand">
+                <span class="nav-brand-icon">🔍</span>
+                <span>ShopSpy Admin</span>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">📊 Дашборд</a>
+                <a href="/admin" class="nav-link active">⚙️ Разработчик</a>
+                <a href="/docs" class="nav-link">📖 API</a>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- Error Banner -->
+            <div class="error-banner" id="error-banner">
+                <span>⚠️</span>
+                <span class="error-banner-text" id="error-text"
+                    >Ошибка загрузки данных</span
+                >
+                <button class="btn btn-secondary" onclick="loadData()">
+                    Повторить
+                </button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Пользователей</div>
+                    <div class="stat-value telegram" id="stat-users">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Товаров</div>
+                    <div class="stat-value accent" id="stat-products">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Записей цен</div>
+                    <div class="stat-value blue" id="stat-records">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Отслеживаний</div>
+                    <div class="stat-value green" id="stat-alerts">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Wildberries</div>
+                    <div class="stat-value" id="stat-wb">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ozon</div>
+                    <div class="stat-value" id="stat-ozon">—</div>
+                </div>
+            </div>
+
+            <!-- Config Section -->
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title">⚙️ Конфигурация системы</div>
+                </div>
+                <div class="card">
+                    <div class="config-grid">
+                        <div class="config-item">
+                            <div class="config-label">Интервал краулера</div>
+                            <div class="config-value" id="config-crawler">
+                                —
+                            </div>
+                        </div>
+                        <div class="config-item">
+                            <div class="config-label">AI провайдер</div>
+                            <div class="config-value" id="config-ai">—</div>
+                        </div>
+                        <div class="config-item">
+                            <div class="config-label">Telegram бот</div>
+                            <div class="config-value" id="config-telegram">
+                                —
+                            </div>
+                        </div>
+                        <div class="config-item">
+                            <div class="config-label">Последнее обновление</div>
+                            <div class="config-value" id="config-updated">
+                                —
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Grid -->
+            <div class="cards-grid">
+                <!-- Users -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            👥 Пользователи
+                            <span class="section-badge" id="users-count"
+                                >0</span
+                            >
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Пользователь</th>
+                                    <th>Статус</th>
+                                    <th>Отслеживаний</th>
+                                    <th>Создан</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table">
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">
+                                                ⏳
+                                            </div>
+                                            <div>Загрузка...</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Alerts -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            🔔 Отслеживания
+                            <span class="section-badge" id="alerts-count"
+                                >0</span
+                            >
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Пользователь</th>
+                                    <th>Товар</th>
+                                    <th>Платформа</th>
+                                    <th>Цена</th>
+                                    <th>Цель</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alerts-table">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">
+                                                ⏳
+                                            </div>
+                                            <div>Загрузка...</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Recent Prices -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">💰 Последние записи цен</div>
+                    </div>
+                    <div class="card-body">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Платформа</th>
+                                    <th>Товар</th>
+                                    <th>Цена</th>
+                                    <th>Время</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prices-table">
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">
+                                                ⏳
+                                            </div>
+                                            <div>Загрузка...</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Activity -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📈 Активность</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="activity-feed" id="activity-feed">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">⏳</div>
+                                <div>Загрузка...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="loadData()">
+                            🔄 Обновить
+                        </button>
+                        <button
+                            class="btn btn-secondary"
+                            onclick="triggerCrawl()"
+                            id="crawl-btn"
+                        >
+                            🕷️ Запустить краулер
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Format time relative
+            function formatTime(dateStr) {
+                if (!dateStr) return "—";
+                const date = new Date(dateStr);
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (minutes < 1) return "только что";
+                if (minutes < 60) return `${minutes} мин назад`;
+                if (hours < 24) return `${hours} ч назад`;
+                if (days < 7) return `${days} дн назад`;
+                return date.toLocaleDateString("ru");
+            }
+
+            // Format date
+            function formatDate(dateStr) {
+                if (!dateStr) return "—";
+                const date = new Date(dateStr);
+                return date.toLocaleDateString("ru");
+            }
+
+            // Count alerts per user
+            function countUserAlerts(alerts, chatId) {
+                return alerts.filter((a) => a.chat_id === chatId && a.is_active)
+                    .length;
+            }
+
+            // Escape HTML
+            function escapeHtml(text) {
+                if (!text) return "";
+                const div = document.createElement("div");
+                div.textContent = String(text);
+                return div.innerHTML;
+            }
+
+            // Show error
+            function showError(message) {
+                const banner = document.getElementById("error-banner");
+                const text = document.getElementById("error-text");
+                text.textContent = message;
+                banner.classList.add("show");
+            }
+
+            // Hide error
+            function hideError() {
+                document
+                    .getElementById("error-banner")
+                    .classList.remove("show");
+            }
+
+            // Load all data
+            async function loadData() {
+                hideError();
+                try {
+                    const [statsResp, usersResp, alertsResp] =
+                        await Promise.all([
+                            fetch("/api/admin/stats"),
+                            fetch("/api/admin/users"),
+                            fetch("/api/admin/alerts"),
+                        ]);
+
+                    if (!statsResp.ok || !usersResp.ok || !alertsResp.ok) {
+                        throw new Error("Ошибка загрузки данных");
+                    }
+
+                    const stats = await statsResp.json();
+                    const users = await usersResp.json();
+                    const alerts = await alertsResp.json();
+
+                    // Update stats
+                    document.getElementById("stat-users").textContent =
+                        stats.overview?.telegram_users || 0;
+                    document.getElementById("stat-products").textContent =
+                        stats.overview?.unique_products || 0;
+                    document.getElementById("stat-records").textContent =
+                        stats.overview?.total_records || 0;
+                    document.getElementById("stat-alerts").textContent =
+                        stats.overview?.active_alerts || 0;
+                    document.getElementById("stat-wb").textContent =
+                        stats.overview?.platforms?.wb || 0;
+                    document.getElementById("stat-ozon").textContent =
+                        stats.overview?.platforms?.ozon || 0;
+
+                    // Update config
+                    document.getElementById("config-crawler").textContent =
+                        `${stats.config?.crawler_interval_hours || 0} ч`;
+                    document.getElementById("config-ai").textContent =
+                        stats.config?.ai_provider || "не настроен";
+
+                    const telEnabled = stats.config?.telegram_enabled;
+                    const telEl = document.getElementById("config-telegram");
+                    telEl.textContent = telEnabled ? "активен" : "отключен";
+                    telEl.className =
+                        "config-value " + (telEnabled ? "on" : "off");
+
+                    document.getElementById("config-updated").textContent =
+                        formatTime(new Date().toISOString());
+
+                    // Render tables
+                    renderUsers(users.users || [], alerts.alerts || []);
+                    renderAlerts(alerts.alerts || []);
+                    renderPrices(stats.recent_prices || []);
+                    renderActivity(
+                        stats.recent_prices || [],
+                        stats.recent_alerts || [],
+                    );
+                } catch (e) {
+                    console.error("Failed to load data:", e);
+                    showError(e.message);
+                }
+            }
+
+            // Render users
+            function renderUsers(users, alerts) {
+                const tbody = document.getElementById("users-table");
+                document.getElementById("users-count").textContent =
+                    users.length;
+
+                if (!users.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">👤</div><div>Нет пользователей</div></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users
+                    .map((user) => {
+                        const displayName =
+                            user.first_name ||
+                            user.username ||
+                            `User ${user.chat_id}`;
+                        const initials = displayName.slice(0, 2).toUpperCase();
+                        const alertsCount = countUserAlerts(
+                            alerts,
+                            user.chat_id,
+                        );
+
+                        return `<tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar">
+                                ${user.photo_url ? `<img src="${user.photo_url}" alt="">` : initials}
+                            </div>
+                            <div class="user-info">
+                                <div class="user-name">${escapeHtml(displayName)}</div>
+                                <div class="user-id">@${user.username || user.chat_id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="status-badge ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Активен" : "Неактивен"}</span></td>
+                    <td>${alertsCount}</td>
+                    <td class="time">${formatDate(user.created_at)}</td>
+                </tr>`;
+                    })
+                    .join("");
+            }
+
+            // Render alerts
+            function renderAlerts(alerts) {
+                const tbody = document.getElementById("alerts-table");
+                const activeAlerts = alerts.filter((a) => a.is_active);
+                document.getElementById("alerts-count").textContent =
+                    activeAlerts.length;
+
+                if (!activeAlerts.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🔔</div><div>Нет отслеживаний</div></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = activeAlerts
+                    .slice(0, 50)
+                    .map((alert) => {
+                        const userName =
+                            alert.first_name ||
+                            alert.username ||
+                            String(alert.chat_id);
+                        const productName =
+                            alert.product_name || `#${alert.product_id}`;
+                        const shortName =
+                            productName.length > 25
+                                ? productName.slice(0, 25) + "..."
+                                : productName;
+
+                        return `<tr>
+                    <td>${escapeHtml(userName)}</td>
+                    <td class="product-name" title="${escapeHtml(productName)}">${escapeHtml(shortName)}</td>
+                    <td><span class="platform-badge ${alert.platform}">${alert.platform === "wb" ? "WB" : "OZON"}</span></td>
+                    <td><span class="price">${alert.last_price ? alert.last_price.toLocaleString("ru") + " ₽" : "—"}</span></td>
+                    <td>${alert.target_price ? `<span class="price" style="color: var(--green)">${alert.target_price.toLocaleString("ru")} ₽</span>` : "—"}</td>
+                </tr>`;
+                    })
+                    .join("");
+            }
+
+            // Render recent prices
+            function renderPrices(prices) {
+                const tbody = document.getElementById("prices-table");
+
+                if (!prices.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">💰</div><div>Нет записей</div></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = prices
+                    .map((p) => {
+                        const name = p.product_name || `#${p.product_id}`;
+                        const shortName =
+                            name.length > 30 ? name.slice(0, 30) + "..." : name;
+
+                        return `<tr>
+                    <td><span class="platform-badge ${p.platform}">${p.platform === "wb" ? "WB" : "OZON"}</span></td>
+                    <td class="product-name" title="${escapeHtml(name)}">${escapeHtml(shortName)}</td>
+                    <td>
+                        <span class="price">${p.price?.toLocaleString("ru") || "—"} ₽</span>
+                        ${p.original_price ? `<span class="price-old">${p.original_price.toLocaleString("ru")} ₽</span>` : ""}
+                    </td>
+                    <td class="time">${formatTime(p.recorded_at)}</td>
+                </tr>`;
+                    })
+                    .join("");
+            }
+
+            // Render activity feed
+            function renderActivity(prices, alerts) {
+                const feed = document.getElementById("activity-feed");
+                const activities = [];
+
+                prices.slice(0, 10).forEach((p) => {
+                    activities.push({
+                        type: "price",
+                        time: new Date(p.recorded_at),
+                        html: `<div class="activity-icon price">💰</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Записана цена <strong>${p.price?.toLocaleString("ru") || "—"} ₽</strong> для ${p.platform === "wb" ? "WB" : "Ozon"} товара</div>
+                            <div class="activity-time">${formatTime(p.recorded_at)}</div>
+                        </div>`,
+                    });
+                });
+
+                alerts.slice(0, 10).forEach((a) => {
+                    activities.push({
+                        type: "alert",
+                        time: new Date(a.created_at),
+                        html: `<div class="activity-icon alert">🔔</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Создано отслеживание для ${a.platform === "wb" ? "WB" : "Ozon"} товара</div>
+                            <div class="activity-time">${formatTime(a.created_at)}</div>
+                        </div>`,
+                    });
+                });
+
+                activities.sort((a, b) => b.time - a.time);
+
+                if (!activities.length) {
+                    feed.innerHTML =
+                        '<div class="empty-state"><div class="empty-state-icon">📈</div><div>Нет активности</div></div>';
+                    return;
+                }
+
+                feed.innerHTML = activities
+                    .slice(0, 20)
+                    .map((a) => `<div class="activity-item">${a.html}</div>`)
+                    .join("");
+            }
+
+            // Trigger crawl
+            async function triggerCrawl() {
+                const btn = document.getElementById("crawl-btn");
+                try {
+                    btn.disabled = true;
+                    btn.textContent = "⏳ Запуск...";
+
+                    const resp = await fetch("/api/crawl", { method: "POST" });
+                    const data = await resp.json();
+
+                    alert(data.message || "Краулер запущен");
+
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.textContent = "🕷️ Запустить краулер";
+                        loadData();
+                    }, 3000);
+                } catch (e) {
+                    alert("Ошибка запуска краулера: " + e.message);
+                    btn.disabled = false;
+                    btn.textContent = "🕷️ Запустить краулер";
+                }
+            }
+
+            // Auto-refresh
+            let refreshInterval;
+
+            function startAutoRefresh() {
+                refreshInterval = setInterval(loadData, 30000);
+            }
+
+            function stopAutoRefresh() {
+                if (refreshInterval) clearInterval(refreshInterval);
+            }
+
+            // Init
+            document.addEventListener("DOMContentLoaded", () => {
+                loadData();
+                startAutoRefresh();
+            });
+
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) {
+                    stopAutoRefresh();
+                } else {
+                    loadData();
+                    startAutoRefresh();
+                }
+            });
+        </script>
+    </body>
+</html>

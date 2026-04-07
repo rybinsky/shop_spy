@@ -242,6 +242,24 @@ class UsersRepository:
             cursor.execute("SELECT chat_id FROM telegram_users WHERE is_active = TRUE")
             return [row["chat_id"] for row in cursor.fetchall()]
 
+    def get_all_users(self) -> list[dict]:
+        """
+        Get all users (for admin panel).
+
+        Returns:
+            List of all user dictionaries
+        """
+        with self.db.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT chat_id, username, first_name, last_name, photo_url,
+                       is_active, created_at, updated_at
+                FROM telegram_users
+                ORDER BY created_at DESC
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
     def count_active_users(self) -> int:
         """
         Count active users.

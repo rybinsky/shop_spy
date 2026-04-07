@@ -257,3 +257,56 @@ class AlertsRepository:
         except Exception as e:
             logger.error(f"Error counting alerts: {e}")
             return 0
+
+    def get_all_alerts(self) -> list[dict]:
+        """
+        Get all alerts (for admin panel).
+
+        Returns:
+            List of all alert dictionaries
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT a.chat_id, a.platform, a.product_id, a.product_name,
+                           a.target_price, a.last_price, a.url, a.is_active,
+                           a.created_at, a.updated_at,
+                           u.username, u.first_name
+                    FROM price_alerts a
+                    LEFT JOIN telegram_users u ON a.chat_id = u.chat_id
+                    ORDER BY a.created_at DESC
+                    """
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error getting all alerts: {e}")
+            return []
+
+    def get_recent_alerts(self, limit: int = 20) -> list[dict]:
+        """
+        Get recent alerts (for admin panel).
+
+        Args:
+            limit: Maximum number of alerts to return
+
+        Returns:
+            List of recent alert dictionaries
+        """
+        try:
+            with self.db.get_connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT chat_id, platform, product_id, product_name,
+                           target_price, last_price, created_at
+                    FROM price_alerts
+                    WHERE is_active = TRUE
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error getting recent alerts: {e}")
+            return []

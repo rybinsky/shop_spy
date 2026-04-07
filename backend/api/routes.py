@@ -491,3 +491,57 @@ def health_check():
         "telegram_enabled": config.telegram.enabled,
         "ai_provider": ai_analyzer.provider,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Admin API (Developer Panel)
+# ─────────────────────────────────────────────────────────────
+
+
+@api_router.get("/admin/users")
+def admin_get_users(
+    users: UsersRepository = Depends(get_users_repo),
+):
+    """Get all registered users (admin)."""
+    all_users = users.get_all_users()
+    return {"users": all_users}
+
+
+@api_router.get("/admin/alerts")
+def admin_get_all_alerts(
+    alerts: AlertsRepository = Depends(get_alerts_repo),
+):
+    """Get all alerts (admin)."""
+    all_alerts = alerts.get_all_alerts()
+    return {"alerts": all_alerts}
+
+
+@api_router.get("/admin/stats")
+def admin_get_detailed_stats(
+    prices: PricesRepository = Depends(get_prices_repo),
+    users: UsersRepository = Depends(get_users_repo),
+    alerts: AlertsRepository = Depends(get_alerts_repo),
+):
+    """Get detailed statistics (admin)."""
+    price_stats = prices.get_stats()
+
+    # Recent activity
+    recent_prices = prices.get_recent_prices(20)
+    recent_alerts = alerts.get_recent_alerts(20)
+
+    return {
+        "overview": {
+            "total_records": price_stats["total_records"],
+            "unique_products": price_stats["unique_products"],
+            "platforms": price_stats["platforms"],
+            "telegram_users": users.count_active_users(),
+            "active_alerts": alerts.count_active_alerts(),
+        },
+        "recent_prices": recent_prices,
+        "recent_alerts": recent_alerts,
+        "config": {
+            "crawler_interval_hours": config.crawler.interval_seconds // 3600,
+            "ai_provider": ai_analyzer.provider,
+            "telegram_enabled": config.telegram.enabled,
+        },
+    }

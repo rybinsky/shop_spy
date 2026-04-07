@@ -250,3 +250,24 @@ class PricesRepository:
                 )
 
             return deleted
+
+    def get_recent_prices(self, limit: int = 20) -> list[dict]:
+        """
+        Get recent price records (for admin panel).
+
+        Args:
+            limit: Maximum number of records to return
+
+        Returns:
+            List of recent price records
+        """
+        with self.db.get_connection() as conn:
+            rows = conn.execute(
+                """SELECT platform, product_id, product_name, price,
+                          original_price, url, recorded_at
+                   FROM prices
+                   ORDER BY recorded_at DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]

@@ -119,6 +119,7 @@ async def dashboard():
 
 # Health check endpoint (also available at root level)
 @app.get("/health")
+@app.head("/health")
 async def health():
     """Health check endpoint."""
     return {
@@ -127,6 +128,35 @@ async def health():
         "telegram_enabled": config.telegram.enabled,
         "ai_provider": config.ai.available_provider,
     }
+
+
+# Admin panel route
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_panel():
+    """Serve the admin panel."""
+    admin_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "templates",
+        "admin.html",
+    )
+
+    try:
+        with open(admin_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="""
+            <html>
+                <head><title>ShopSpy Admin</title></head>
+                <body style="font-family: sans-serif; padding: 40px; background: #0f0f1a; color: #e0e0e0;">
+                    <h1>⚙️ ShopSpy Admin</h1>
+                    <p>Admin panel not found. Please ensure templates/admin.html exists.</p>
+                    <p><a href="/" style="color: #e94560;">← Back to Dashboard</a></p>
+                </body>
+            </html>
+            """,
+            status_code=200,
+        )
 
 
 # Run server

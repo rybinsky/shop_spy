@@ -12,6 +12,10 @@ const state = {
   isLoading: true,
 };
 
+// Ключи для кэша
+const CACHE_KEY = "shopspy_cache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
 // DOM элементы
 const elements = {};
 
@@ -76,6 +80,39 @@ function loadUser() {
           resolve(null);
         }
       },
+    );
+  });
+}
+
+// Загрузка кэша товаров
+function loadTrackedCache() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([CACHE_KEY], (result) => {
+      const cache = result[CACHE_KEY];
+      if (
+        cache &&
+        cache.timestamp &&
+        Date.now() - cache.timestamp < CACHE_TTL
+      ) {
+        resolve(cache.products || []);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+// Сохранение кэша товаров
+function saveTrackedCache(products) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(
+      {
+        [CACHE_KEY]: {
+          products: products,
+          timestamp: Date.now(),
+        },
+      },
+      resolve,
     );
   });
 }
@@ -463,17 +500,92 @@ async function logout() {
   renderUI();
 }
 
+// Предзагрузка для "пробуждения" сервера
+let isServerWarmingUp = false;
+
+async function warmupServer() {
+  if (isServerWarmingUp) return;
+
+  isServerWarmingUp = true;
+
+  // Показываем пользователю что сервер просыпается
+  const loader = document.getElementById("loader");
+  if (loader) {
+    loader.innerHTML = `
+      <div class="spinner"></div>
+      <span>Пробуждение сервера (до 30 сек)...</span>
+    `;
+  }
+
+  try {
+    // Быстрый ping для пробуждения сервера с Render.com
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    await fetch(`${API_BASE}/health`, {
+      method: "HEAD",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+  } catch (e) {
+    // Игнорируем ошибки
+  } finally {
+    isServerWarmingUp = false;
+  }
+}
+
 // Инициализация
 async function init() {
   initElements();
 
+  // Запускаем warmup сразу для пробуждения сервера
+  warmupServer();
+
   state.user = await loadUser();
 
+  // Пытаемся загрузить кэш для мгновенного отображения
   if (state.user) {
-    state.trackedProducts = await loadTrackedProducts(state.user.id);
+    const cachedProducts = await loadTrackedCache();
+    if (cachedProducts && cachedProducts.length > 0) {
+      state.trackedProducts = cachedProducts;
+      // Скрываем loader и показываем кэшированные данные сразу
+      hide(elements.loader);
+      renderUI();
+    }
   }
 
-  state.currentProduct = await getCurrentProduct();
+  // Обновляем текст загрузки
+  const loader = document.getElementById("loader");
+  if (loader && state.trackedProducts.length === 0) {
+    loader.innerHTML = `
+      <div class="spinner"></div>
+      <span>Загрузка данных...</span>
+    `;
+  }
+
+  // Параллельные запросы для ускорения загрузки
+  const promises = [];
+  let productIndex = 0;
+
+  if (state.user) {
+    promises.push(loadTrackedProducts(state.user.id));
+    productIndex = 1; // getCurrentProduct будет вторым
+  }
+
+  promises.push(getCurrentProduct());
+
+  const results = await Promise.all(promises);
+
+  // Распределяем результаты по индексам
+  if (state.user) {
+    state.trackedProducts = results[0] || [];
+    // Сохраняем в кэш
+    saveTrackedCache(state.trackedProducts);
+    state.currentProduct = results[productIndex];
+  } else {
+    state.currentProduct = results[0];
+  }
 
   renderUI();
 
