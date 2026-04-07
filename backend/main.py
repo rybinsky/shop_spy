@@ -88,18 +88,18 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 
 
-# Dashboard route
+# Index page route
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
-    """Serve the web dashboard."""
-    dashboard_path = os.path.join(
+async def index():
+    """Serve the landing page."""
+    index_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         "templates",
-        "dashboard.html",
+        "index.html",
     )
 
     try:
-        with open(dashboard_path, "r", encoding="utf-8") as f:
+        with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return HTMLResponse(
@@ -108,13 +108,22 @@ async def dashboard():
                 <head><title>ShopSpy</title></head>
                 <body style="font-family: sans-serif; padding: 40px; background: #0f0f1a; color: #e0e0e0;">
                     <h1>🔍 ShopSpy</h1>
-                    <p>Dashboard not found. Please ensure templates/dashboard.html exists.</p>
+                    <p>Page not found.</p>
                     <p><a href="/docs" style="color: #e94560;">API Documentation</a></p>
                 </body>
             </html>
             """,
             status_code=200,
         )
+
+
+# Dashboard redirect
+@app.get("/dashboard")
+async def dashboard():
+    """Redirect to home page."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/")
 
 
 # Health check endpoint (also available at root level)

@@ -23,6 +23,14 @@
                 --text: #e0e0e0;
                 --muted: #666;
             }
+
+            [data-theme="light"] {
+                --bg: #f8f9fa;
+                --card: #ffffff;
+                --border: rgba(0, 0, 0, 0.08);
+                --text: #1a1a2e;
+                --muted: #666;
+            }
             * {
                 margin: 0;
                 padding: 0;
@@ -80,6 +88,24 @@
             .nav-link.active {
                 background: rgba(233, 69, 96, 0.15);
                 color: var(--accent);
+            }
+            .theme-toggle {
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: var(--card);
+                color: var(--text);
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.15s;
+                margin-left: 8px;
+            }
+            .theme-toggle:hover {
+                background: rgba(255, 255, 255, 0.1);
             }
 
             /* Container */
@@ -511,9 +537,16 @@
                 <span>ShopSpy Admin</span>
             </div>
             <div class="nav-links">
-                <a href="/" class="nav-link">📊 Дашборд</a>
+                <a href="/" class="nav-link">📊 Главная</a>
                 <a href="/admin" class="nav-link active">⚙️ Разработчик</a>
                 <a href="/docs" class="nav-link">📖 API</a>
+                <button
+                    class="theme-toggle"
+                    onclick="toggleTheme()"
+                    id="theme-toggle"
+                >
+                    🌙
+                </button>
             </div>
         </nav>
 
@@ -1035,6 +1068,26 @@
                 loadData();
                 startAutoRefresh();
             });
+
+            // Theme toggle
+            function toggleTheme() {
+                const html = document.documentElement;
+                const btn = document.getElementById("theme-toggle");
+                const isDark = html.getAttribute("data-theme") !== "light";
+                html.setAttribute("data-theme", isDark ? "light" : "dark");
+                btn.textContent = isDark ? "☀️" : "🌙";
+                localStorage.setItem("theme", isDark ? "light" : "dark");
+            }
+
+            // Load saved theme
+            (function () {
+                const saved = localStorage.getItem("theme");
+                if (saved) {
+                    document.documentElement.setAttribute("data-theme", saved);
+                    const btn = document.getElementById("theme-toggle");
+                    if (btn) btn.textContent = saved === "light" ? "☀️" : "🌙";
+                }
+            })();
 
             document.addEventListener("visibilitychange", () => {
                 if (document.hidden) {
