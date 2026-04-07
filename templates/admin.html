@@ -762,6 +762,10 @@
             // Format time relative
             function formatTime(dateStr) {
                 if (!dateStr) return "—";
+                // Treat as UTC if no timezone specified (SQLite stores in UTC)
+                if (!dateStr.endsWith("Z") && !dateStr.includes("+")) {
+                    dateStr = dateStr + "Z";
+                }
                 const date = new Date(dateStr);
                 const now = new Date();
                 const diff = now - date;
@@ -779,6 +783,10 @@
             // Format date
             function formatDate(dateStr) {
                 if (!dateStr) return "—";
+                // Treat as UTC if no timezone specified (SQLite stores in UTC)
+                if (!dateStr.endsWith("Z") && !dateStr.includes("+")) {
+                    dateStr = dateStr + "Z";
+                }
                 const date = new Date(dateStr);
                 return date.toLocaleDateString("ru");
             }
