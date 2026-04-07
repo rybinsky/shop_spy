@@ -50,6 +50,10 @@ class TelegramBot:
             logger.info("Telegram bot is disabled (no TELEGRAM_BOT_TOKEN)")
             return
 
+        if not self.token:
+            logger.error("Telegram bot token is None")
+            return
+
         try:
             self.bot = Bot(token=self.token)
             self.dp = Dispatcher()
@@ -78,6 +82,7 @@ class TelegramBot:
 
     def _register_handlers(self) -> None:
         """Register command handlers."""
+        assert self.dp is not None, "Dispatcher must be initialized"
 
         @self.dp.message(Command("start"))
         async def cmd_start(message: types.Message):
@@ -119,7 +124,8 @@ class TelegramBot:
         username = message.from_user.username if message.from_user else None
 
         # Save user
-        self.users_repo.save_user(chat_id, username)
+        if self.users_repo:
+            self.users_repo.save_user(chat_id, username)
 
         # Send welcome message with keyboard
         text = f"""👋 Привет!
@@ -151,8 +157,10 @@ class TelegramBot:
         chat_id = message.chat.id
 
         # Deactivate user and delete alerts
-        self.users_repo.deactivate_user(chat_id)
-        self.alerts_repo.delete_all_alerts_for_chat(chat_id)
+        if self.users_repo:
+            self.users_repo.deactivate_user(chat_id)
+        if self.alerts_repo:
+            self.alerts_repo.delete_all_alerts_for_chat(chat_id)
 
         text = """✅ Уведомления отключены.
 
@@ -166,10 +174,18 @@ class TelegramBot:
 
     async def _handle_delete_callback(self, callback: CallbackQuery) -> None:
         """Handle delete button callback."""
+        if not callback.message:
+            await callback.answer("Ошибка: сообщение не найдено")
+            return
+
         chat_id = callback.message.chat.id
 
         # Parse callback data: delete_platform_productId
         try:
+            if not callback.data:
+                await callback.answer("Ошибка: неверные данные")
+                return
+
             parts = callback.data.split("_")
             if len(parts) < 3:
                 await callback.answer("Ошибка: неверные данные")
@@ -179,14 +195,23 @@ class TelegramBot:
             product_id = parts[2]
 
             # Delete the alert
-            success = self.alerts_repo.delete_alert(chat_id, platform, product_id)
+            success = (
+                self.alerts_repo.delete_alert(chat_id, platform, product_id)
+                if self.alerts_repo
+                else False
+            )
 
             if success:
                 # Edit the message to show it's deleted
                 try:
-                    await callback.message.edit_text(
-                        "❌ Товар удалён из отслеживания", reply_markup=None
-                    )
+                    from aiogram.types import InaccessibleMessage
+
+                    if callback.message and not isinstance(
+                        callback.message, InaccessibleMessage
+                    ):
+                        await callback.message.edit_text(
+                            "❌ Товар удалён из отслеживания", reply_markup=None
+                        )
                 except Exception:
                     pass
                 await callback.answer("✅ Товар удалён")
@@ -201,7 +226,9 @@ class TelegramBot:
     async def _handle_list(self, message: types.Message) -> None:
         """Handle /list command."""
         chat_id = message.chat.id
-        alerts = self.alerts_repo.get_alerts_by_chat(chat_id)
+        alerts = (
+            self.alerts_repo.get_alerts_by_chat(chat_id) if self.alerts_repo else []
+        )
 
         if not alerts:
             text = """📭 У тебя пока нет отслеживаемых товаров.
@@ -361,7 +388,8 @@ class TelegramBot:
 
         except TelegramForbiddenError:
             logger.warning(f"User {chat_id} blocked the bot")
-            self.users_repo.deactivate_user(chat_id)
+            if self.users_repo:
+                self.users_repo.deactivate_user(chat_id)
             return False
 
         except TelegramBadRequest as e:
@@ -432,7 +460,8 @@ class TelegramBot:
 
         except TelegramForbiddenError:
             logger.warning(f"User {chat_id} blocked the bot")
-            self.users_repo.deactivate_user(chat_id)
+            if self.users_repo:
+                self.users_repo.deactivate_user(chat_id)
             return False
 
         except Exception as e:

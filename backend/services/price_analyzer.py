@@ -89,7 +89,7 @@ class PriceAnalyzer:
         min_price: float,
         max_price: float,
         avg_price: float,
-        claimed_discount: int,
+        claimed_discount: Optional[int],
         real_discount_from_avg: int,
         price_count: int,
     ) -> tuple[str, str]:

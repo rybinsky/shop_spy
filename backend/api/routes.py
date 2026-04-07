@@ -7,7 +7,6 @@ FastAPI routes for price tracking, alerts, and AI analysis.
 import hashlib
 import hmac
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -231,7 +230,7 @@ async def analyze_reviews(
                     f"Returning cached analysis for {data.platform}:{data.product_id}"
                 )
                 return ReviewsAnalyzeResponse(summary=ReviewSummary(**summary))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
     # Analyze with AI
