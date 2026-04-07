@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: shopspy
+    name: shop-spy
     runtime: docker
     healthCheckPath: /health
     envVars:
