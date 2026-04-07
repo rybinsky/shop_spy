@@ -5,5 +5,5 @@
  * Change this value when deploying to a different server.
  */
 const SHOPSPY_CONFIG = {
-  API_BASE: "https://shop-spy-docker.onrender.com",
+  API_BASE: "https://shopspy.onrender.com",
 };
