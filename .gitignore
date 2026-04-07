@@ -12,3 +12,9 @@ venv/
 *.swp
 venv/
 .venv/
+dist/
+*.zip
+.DS_Store
+.pytest_cache/
+htmlcov/
+.coverage

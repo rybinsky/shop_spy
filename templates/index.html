@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShopSpy — Умный помощник покупателя</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg: #0a0a12;
+            --bg-secondary: #12121f;
+            --card: #1a1a2e;
+            --border: rgba(255, 255, 255, 0.08);
+            --accent: #e94560;
+            --accent-hover: #d13a52;
+            --green: #4caf50;
+            --blue: #2196f3;
+            --purple: #9c27b0;
+            --telegram: #0088cc;
+            --wb: #e940c5;
+            --ozon: #0088ff;
+            --text: #e0e0e0;
+            --text-secondary: #888;
+            --muted: #555;
+        }
+
+        [data-theme="light"] {
+            --bg: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --card: #ffffff;
+            --border: rgba(0, 0, 0, 0.08);
+            --text: #1a1a2e;
+            --text-secondary: #666;
+            --muted: #999;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .nav-brand-icon {
+            font-size: 24px;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+
+        .nav-link:hover {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border);
+        }
+
+        .hero {
+            padding: 80px 24px;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: rgba(233, 69, 96, 0.15);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-size: 52px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .platforms {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        .platform-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .platform-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .platform-dot.wb { background: var(--wb); }
+        .platform-dot.ozon { background: var(--ozon); }
+
+        .section {
+            padding: 80px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .section-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .feature-title {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step:not(:last-child)::after {
+            content: "→";
+            position: absolute;
+            right: -16px;
+            top: 40px;
+            font-size: 20px;
+            color: var(--muted);
+        }
+
+        .step-num {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            color: #fff;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .step-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .step-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .stats-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 40px 24px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .links-section {
+            background: var(--bg-secondary);
+            padding: 60px 24px;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .link-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+
+        .link-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .link-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .link-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .link-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .footer {
+            padding: 40px 24px;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 16px;
+        }
+
+        .footer-links a {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        @media (max-width: 900px) {
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .steps { grid-template-columns: repeat(2, 1fr); }
+            .step:not(:last-child)::after { display: none; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .links-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .hero { padding: 60px 20px; }
+            .hero h1 { font-size: 36px; }
+            .hero-subtitle { font-size: 16px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .steps { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .platforms { flex-direction: column; gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand">
+            <span class="nav-brand-icon">🔍</span>
+            <span>ShopSpy</span>
+        </a>
+        <div class="nav-actions">
+            <a href="/dashboard" class="nav-link">📊 Дашборд</a>
+            <a href="/admin" class="nav-link">⚙️ Админ</a>
+            <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle">🌙</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-badge">
+            <span>✨</span>
+            <span>Бесплатно • Без регистрации</span>
+        </div>
+        <h1>Умный помощник<br><span>для покупок</span></h1>
+        <p class="hero-subtitle">
+            Отслеживайте цены на Wildberries и Ozon, получайте уведомления о скидках и находите фейковые акции
+        </p>
+        <div class="hero-actions">
+            <a href="#install" class="btn btn-primary">
+                <span>🚀</span>
+                <span>Установить расширение</span>
+            </a>
+            <a href="/dashboard" class="btn btn-secondary">
+                <span>📊</span>
+                <span>Открыть дашборд</span>
+            </a>
+        </div>
+        <div class="platforms">
+            <div class="platform-item">
+                <div class="platform-dot wb"></div>
+                <span>Wildberries</span>
+            </div>
+            <div class="platform-item">
+                <div class="platform-dot ozon"></div>
+                <span>Ozon</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">
+            <h2 class="section-title">Возможности</h2>
+            <p class="section-subtitle">Всё что нужно для умных покупок</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">История цен</h3>
+                <p class="feature-desc">Автоматический сбор цен при просмотре товаров. Всегда знаете реальную динамику</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚨</div>
+                <h3 class="feature-title">Детектор фейковых скидок</h3>
+                <p class="feature-desc">Анализируем реальность скидки на основе истории цен</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3 class="feature-title">Telegram уведомления</h3>
+                <p class="feature-desc">Мгновенные оповещения о снижении цен на выбранные товары</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">Целевые цены</h3>
+                <p class="feature-desc">Установите желаемую цену и получите уведомление когда она упадёт</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3 class="feature-title">AI-анализ отзывов</h3>
+                <p class="feature-desc">Краткая выжимка плюсов и минусов товара с оценкой честности рейтинга</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3 class="feature-title">Сравнение площадок</h3>
+                <p class="feature-desc">Быстрый поиск товара на другом маркетплейсе для сравнения цен</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats-bar">
+        <div class="stats-grid">
+            <div>
+                <div class="stat-value" id="stat-products">—</div>
+                <div class="stat-label">Товаров отслеживается</div>
+            </div>
+            <div>
+                <div class="stat-value" id="stat-records">—</div>
+                <div class="stat-label">Записей цен</div>
+            </div>
+            <div>
+                <div class="stat-value" id="stat-users">—</div>
+                <div class="stat-label">Пользователей</div>
+            </div>
+            <div>
+                <div class="stat-value" id="stat-alerts">—</div>
+                <div class="stat-label">Активных отслеживаний</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="install">
+        <div class="section-header">
+            <h2 class="section-title">Как установить</h2>
+            <p class="section-subtitle">4 простых шага до умных покупок</p>
+        </div>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <h3 class="step-title">Скачайте расширение</h3>
+                <p class="step-desc">ZIP-архив с расширением</p>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <h3 class="step-title">Установите в браузер</h3>
+                <p class="step-desc">Chrome → Расширения → Загрузить распакованное</p>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <h3 class="step-title">Авторизуйтесь</h3>
+                <p class="step-desc">Введите Chat ID в popup расширения</p>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <h3 class="step-title">Отслеживайте цены</h3>
+                <p class="step-desc">Откройте товар и нажмите "Отслеживать"</p>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="/dist/shopspy-extension.zip" class="btn btn-primary" download>
+                <span>📥</span>
+                <span>Скачать расширение</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="links-section">
+        <div class="section-header">
+            <h2 class="section-title">Полезные ссылки</h2>
+        </div>
+        <div class="links-grid">
+            <a href="/dashboard" class="link-card">
+                <div class="link-icon">📊</div>
+                <h3 class="link-title">Дашборд</h3>
+                <p class="link-desc">Просмотр отслеживаемых товаров и истории цен</p>
+            </a>
+            <a href="https://t.me/shopspy_bot" target="_blank" class="link-card">
+                <div class="link-icon">✈️</div>
+                <h3 class="link-title">Telegram бот</h3>
+                <p class="link-desc">Получите Chat ID и управляйте уведомлениями</p>
+            </a>
+            <a href="/admin" class="link-card">
+                <div class="link-icon">⚙️</div>
+                <h3 class="link-title">Админ-панель</h3>
+                <p class="link-desc">Статистика и мониторинг сервиса</p>
+            </a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p class="footer-text">Сделано с ❤️ для умных покупателей</p>
+        <div class="footer-links">
+            <a href="/docs">API документация</a>
+            <a href="https://github.com" target="_blank">GitHub</a>
+            <a href="https://t.me/shopspy_bot" target="_blank">Telegram</a>
+        </div>
+    </footer>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const btn = document.getElementById('theme-toggle');
+            const isDark = html.getAttribute('data-theme') !== 'light';
+            html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            btn.textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        }
+
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+                document.getElementById('theme-toggle').textContent = saved === 'light' ? '☀️' : '🌙';
+            }
+        })();
+
+        async function loadStats() {
+            try {
+                const resp = await fetch('/api/stats');
+                const data = await resp.json();
+                document.getElementById('stat-products').textContent = data.unique_products || 0;
+                document.getElementById('stat-records').textContent = data.total_records || 0;
+                document.getElementById('stat-users').textContent = data.telegram_users || 0;
+                document.getElementById('stat-alerts').textContent = data.active_alerts || 0;
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadStats);
+    </script>
+</body>
+</html>
