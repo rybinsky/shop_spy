@@ -1,8 +1,7 @@
 FROM python:3.11-slim
 
-# System deps for Playwright (WB) + Chrome/Xvfb (Ozon)
+# Системные зависимости для Playwright (Chromium + Headless Shell)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb \
     wget gnupg \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
     libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
@@ -10,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome for undetected-chromedriver (Ozon)
+# Устанавливаем Google Chrome (если нужен для undetected-chromedriver – для Ozon)
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update && apt-get install -y google-chrome-stable \
@@ -19,15 +18,15 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install chromium
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Ключевой момент: указываем тот же путь, который использует Render для кэша браузеров
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/rendercache
+
+# Устанавливаем ВСЕ браузеры Playwright (Chromium + Headless Shell)
+RUN playwright install
 
 COPY . .
 
-ENV DISPLAY=:99
-ENV RENDER=1
-
-# Start Xvfb + app
-CMD Xvfb :99 -screen 0 1280x720x24 -nolisten tcp & \
-    sleep 1 && \
-    python -m backend.main
+# Не нужны ни Xvfb, ни DISPLAY – Playwright работает headless
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
