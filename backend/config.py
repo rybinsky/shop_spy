@@ -149,7 +149,7 @@ class Config:
         if self.env == Environment.PRODUCTION:
             self.server.debug = False
             self.api_base_url = os.environ.get(
-                "API_BASE_URL", "https://shop-spy.onrender.com"
+                "API_BASE_URL", "https://shop-spy-docker.onrender.com"
             )
 
     @property

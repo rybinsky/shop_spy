@@ -2,7 +2,7 @@
  * ShopSpy Popup - Управление отслеживанием товаров
  */
 
-const API_BASE = "https://shop-spy.onrender.com";
+const API_BASE = "https://shop-spy-docker.onrender.com";
 
 // Состояние приложения
 const state = {

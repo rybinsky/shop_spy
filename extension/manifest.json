@@ -9,7 +9,7 @@
     "https://wildberries.ru/*",
     "https://www.ozon.ru/*",
     "https://ozon.ru/*",
-    "https://shop-spy.onrender.com/*"
+    "https://shop-spy-docker.onrender.com/*"
   ],
   "content_scripts": [
     {
