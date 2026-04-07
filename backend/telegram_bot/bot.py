@@ -63,7 +63,11 @@ class TelegramBot:
             self._register_handlers()
 
             logger.info("Starting Telegram bot polling...")
-            await self.dp.start_polling(self.bot)
+            await self.dp.start_polling(
+                self.bot,
+                allowed_updates=["message", "callback_query"],
+                drop_pending_updates=True,
+            )
 
         except Exception as e:
             logger.error(f"Failed to start Telegram bot: {e}")

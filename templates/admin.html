@@ -953,9 +953,13 @@
                                 ? productName.slice(0, 25) + "..."
                                 : productName;
 
+                        const nameHtml = alert.url
+                            ? `<a href="${escapeHtml(alert.url)}" target="_blank" style="color:var(--accent);text-decoration:none;">${escapeHtml(shortName)}</a>`
+                            : escapeHtml(shortName);
+
                         return `<tr>
                     <td>${escapeHtml(userName)}</td>
-                    <td class="product-name" title="${escapeHtml(productName)}">${escapeHtml(shortName)}</td>
+                    <td class="product-name" title="${escapeHtml(productName)}">${nameHtml}</td>
                     <td><span class="platform-badge ${alert.platform}">${alert.platform === "wb" ? "WB" : "OZON"}</span></td>
                     <td><span class="price">${alert.last_price ? alert.last_price.toLocaleString("ru") + " ₽" : "—"}</span></td>
                     <td>${alert.target_price ? `<span class="price" style="color: var(--green)">${alert.target_price.toLocaleString("ru")} ₽</span>` : "—"}</td>
@@ -979,10 +983,13 @@
                         const name = p.product_name || `#${p.product_id}`;
                         const shortName =
                             name.length > 30 ? name.slice(0, 30) + "..." : name;
+                        const nameHtml = p.url
+                            ? `<a href="${escapeHtml(p.url)}" target="_blank" style="color:var(--accent);text-decoration:none;">${escapeHtml(shortName)}</a>`
+                            : escapeHtml(shortName);
 
                         return `<tr>
                     <td><span class="platform-badge ${p.platform}">${p.platform === "wb" ? "WB" : "OZON"}</span></td>
-                    <td class="product-name" title="${escapeHtml(name)}">${escapeHtml(shortName)}</td>
+                    <td class="product-name" title="${escapeHtml(name)}">${nameHtml}</td>
                     <td>
                         <span class="price">${p.price?.toLocaleString("ru") || "—"} ₽</span>
                         ${p.original_price ? `<span class="price-old">${p.original_price.toLocaleString("ru")} ₽</span>` : ""}
