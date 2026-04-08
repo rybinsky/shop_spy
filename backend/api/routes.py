@@ -168,6 +168,7 @@ def record_price(
             price=record.price,
             product_name=record.product_name,
             original_price=record.original_price,
+            card_price=record.card_price,
             url=record.url,
         )
 

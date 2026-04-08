@@ -32,6 +32,7 @@ class PricesRepository:
         price: float,
         product_name: Optional[str] = None,
         original_price: Optional[float] = None,
+        card_price: Optional[float] = None,
         url: Optional[str] = None,
     ) -> tuple[bool, Optional[float]]:
         """
@@ -73,9 +74,17 @@ class PricesRepository:
             # Insert new price record
             conn.execute(
                 """INSERT INTO prices
-                   (platform, product_id, product_name, price, original_price, url)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (platform, product_id, product_name, price, original_price, url),
+                   (platform, product_id, product_name, price, original_price, card_price, url)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    platform,
+                    product_id,
+                    product_name,
+                    price,
+                    original_price,
+                    card_price,
+                    url,
+                ),
             )
 
             logger.info(
@@ -100,7 +109,7 @@ class PricesRepository:
         """
         with self.db.get_connection() as conn:
             rows = conn.execute(
-                """SELECT price, original_price, recorded_at
+                """SELECT price, original_price, card_price, recorded_at
                    FROM prices
                    WHERE platform = ? AND product_id = ?
                    ORDER BY recorded_at DESC LIMIT ?""",
@@ -112,6 +121,7 @@ class PricesRepository:
                 {
                     "price": row["price"],
                     "original_price": row["original_price"],
+                    "card_price": row["card_price"],
                     "recorded_at": row["recorded_at"],
                 }
                 for row in reversed(rows)

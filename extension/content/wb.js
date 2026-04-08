@@ -227,7 +227,14 @@
 
     if (price) {
       console.log("ShopSpy WB: sending price to server...");
-      await SHOPSPY.sendPrice(PLATFORM, productId, name, price, originalPrice);
+      await SHOPSPY.sendPrice(
+        PLATFORM,
+        productId,
+        name,
+        price,
+        originalPrice,
+        null,
+      );
     } else {
       console.log("ShopSpy WB: price is null, NOT sending");
     }
@@ -247,6 +254,7 @@
       productName: name,
       price,
       originalPrice,
+      cardPrice: null,
       platform: PLATFORM,
       productId,
       getReviews,

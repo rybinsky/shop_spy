@@ -109,6 +109,7 @@ class Database:
                 product_name TEXT,
                 price REAL NOT NULL,
                 original_price REAL,
+                card_price REAL,
                 url TEXT,
                 recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -171,6 +172,15 @@ class Database:
             ON price_alerts(platform, product_id, is_active);
         """
         )
+        # Migration: Add card_price column if it doesn't exist
+        try:
+            with self.get_connection() as conn:
+                conn.execute("ALTER TABLE prices ADD COLUMN card_price REAL")
+                logger.info("Added card_price column to prices table")
+        except Exception:
+            # Column already exists, ignore
+            pass
+
         logger.info("Database tables initialized successfully")
 
     def table_exists(self, table_name: str) -> bool:

@@ -2,8 +2,9 @@
  * ShopSpy - Ozon content script
  *
  * Парсинг цен на Ozon:
- * - Основная цена (без скидки Ozon Банка)
- * - Зачёркнутая старая цена
+ * - card_price: Цена по карте Ozon Банка (самая низкая)
+ * - price: Цена без карты Ozon (со скидкой)
+ * - original_price: Зачёркнутая цена без скидки
  */
 (function () {
   "use strict";
@@ -19,21 +20,6 @@
     const cleaned = text.replace(/[^\d]/g, "");
     const v = parseFloat(cleaned);
     return v > 0 && v < 100_000_000 ? v : null;
-  }
-
-  /**
-   * Находит все цены в элементе и возвращает массив чисел.
-   */
-  function extractAllPrices(element) {
-    const prices = [];
-    const text = element.textContent || "";
-    // Ищем все паттерны цен: число + ₽
-    const matches = text.matchAll(/(\d[\d\s\u00a0\u2009]*)\s*₽/g);
-    for (const match of matches) {
-      const v = parsePrice(match[1]);
-      if (v) prices.push(v);
-    }
-    return prices;
   }
 
   function getProductId() {
@@ -54,90 +40,221 @@
     return document.title.split(/[-|]/)[0].trim();
   }
 
-  function getCurrentPrice() {
-    console.log("ShopSpy Ozon: getCurrentPrice called");
+  /**
+   * Извлекает все три цены с страницы Ozon.
+   * Возвращает объект { card_price, price, original_price }
+   */
+  function getAllPrices() {
+    console.log("ShopSpy Ozon: getAllPrices called");
+
+    const result = {
+      card_price: null, // Цена по Ozon карте
+      price: null, // Цена без Ozon карты
+      original_price: null, // Зачёркнутая цена без скидки
+    };
 
     // Основной виджет с ценой
     const webPrice = document.querySelector('[data-widget="webPrice"]');
     if (!webPrice) {
       console.log("ShopSpy Ozon: webPrice widget not found");
-      return null;
+      return result;
     }
 
-    // Способ 1: Ищем контейнер с текстом "без Ozon Банка"
-    const allSpans = webPrice.querySelectorAll("span");
-    for (const span of allSpans) {
-      const text = span.textContent || "";
-      if (text.includes("без") && text.includes("Банка")) {
-        // Цена в соседнем или родительском элементе
-        const parent = span.parentElement;
-        if (parent) {
-          const prices = extractAllPrices(parent);
-          console.log("ShopSpy Ozon: prices near 'без Банка' =", prices);
-          if (prices.length > 0) return prices[0];
-        }
-      }
-    }
+    // ── 1. Ищем цену по Ozon карте ──
+    // Структура: <span class="tsHeadline600Large">4 090 ₽</span> рядом с текстом "c Ozon Банком"
+    const cardPriceSelectors = [
+      ".pdp_i1b .tsHeadline600Large",
+      ".pdp_ib1 .tsHeadline600Large",
+      ".pdp_b1i .tsHeadline600Large",
+    ];
 
-    // Способ 2: Анализируем структуру webPrice
-    // Обычно: первая цена = со скидкой банка, вторая = обычная
-    const allPrices = extractAllPrices(webPrice);
-    console.log("ShopSpy Ozon: all extracted prices =", allPrices);
-
-    if (allPrices.length >= 2) {
-      // Если 2+ цены, берём вторую (обычная цена без банка)
-      // Сортируем по убыванию и берём вторую по величине или вторую по порядку
-      return allPrices[1];
-    }
-    if (allPrices.length === 1) {
-      return allPrices[0];
-    }
-
-    // Способ 3: Прямой поиск по селекторам цены
-    for (const s of [
-      '[data-widget="webPrice"] .m4_9',
-      '[data-widget="webPrice"] [class*="m4_"]',
-    ]) {
-      const el = document.querySelector(s);
+    for (const selector of cardPriceSelectors) {
+      const el = webPrice.querySelector(selector);
       if (el) {
         const v = parsePrice(el.textContent);
         if (v) {
-          console.log("ShopSpy Ozon: found via selector", s, "=", v);
-          return v;
+          result.card_price = v;
+          console.log("ShopSpy Ozon: card_price found via", selector, "=", v);
+          break;
         }
       }
     }
 
-    console.log("ShopSpy Ozon: price not found");
-    return null;
-  }
-
-  function getOriginalPrice() {
-    console.log("ShopSpy Ozon: getOriginalPrice called");
-
-    // Ищем зачёркнутую цену (старая цена до скидки)
-    for (const s of [
-      '[data-widget="webPrice"] s',
-      '[data-widget="webPrice"] del',
-      '[data-widget="webPrice"] span[style*="line-through"]',
-      '[data-widget="webPrice"] [class*="b9i"]',
-    ]) {
-      const el = document.querySelector(s);
-      if (el) {
-        const v = parsePrice(el.textContent);
-        console.log("ShopSpy Ozon: oldPrice via", s, "=", v);
-        if (v) return v;
+    // Альтернативный способ: ищем блок с текстом "c Ozon Банком"
+    if (!result.card_price) {
+      const allSpans = webPrice.querySelectorAll("span");
+      for (const span of allSpans) {
+        const text = span.textContent || "";
+        if (text.includes("Ozon Банк") || text.includes("Ozon Банком")) {
+          // Ищем цену в родительском элементе
+          const parent = span.closest(".pdp_ib1, .pdp_b1i, .pdp_i0b");
+          if (parent) {
+            const priceEl = parent.querySelector(
+              ".tsHeadline600Large, .tsHeadline500Large",
+            );
+            if (priceEl) {
+              const v = parsePrice(priceEl.textContent);
+              if (v) {
+                result.card_price = v;
+                console.log(
+                  "ShopSpy Ozon: card_price found near 'Ozon Банк' =",
+                  v,
+                );
+                break;
+              }
+            }
+          }
+        }
       }
     }
 
-    // Альтернатива: ищем элемент с классом зачёркнутой цены
-    const oldEl = document.querySelector(".pdp_bj.pdp_b0j.pdp_b9i, .pdp_b9i");
-    if (oldEl) {
-      const v = parsePrice(oldEl.textContent);
-      if (v) return v;
+    // ── 2. Ищем цену без Ozon карты (основная цена со скидкой) ──
+    // Структура: <span class="pdp_bj tsHeadline500Medium">4 470 ₽</span>
+    const priceSelectors = [
+      ".pdp_bj.tsHeadline500Medium",
+      ".pdp_jb1 > .pdp_bj",
+      ".pdp_b9i .pdp_bj",
+    ];
+
+    for (const selector of priceSelectors) {
+      const el = webPrice.querySelector(selector);
+      if (el) {
+        const v = parsePrice(el.textContent);
+        if (v) {
+          result.price = v;
+          console.log("ShopSpy Ozon: price found via", selector, "=", v);
+          break;
+        }
+      }
     }
 
-    return null;
+    // Альтернативный способ: ищем блок с текстом "без Ozon Банка"
+    if (!result.price) {
+      const allSpans = webPrice.querySelectorAll("span");
+      for (const span of allSpans) {
+        const text = span.textContent || "";
+        if (text.includes("без") && text.includes("Банка")) {
+          // Цена в родительском контейнере
+          const parent = span.closest(".pdp_b1j, .pdp_jb1");
+          if (parent) {
+            // Ищем элемент с классом pdp_bj (основная цена)
+            const priceEl = parent.querySelector(".pdp_bj");
+            if (priceEl && !priceEl.classList.contains("pdp_bj0")) {
+              const v = parsePrice(priceEl.textContent);
+              if (v) {
+                result.price = v;
+                console.log("ShopSpy Ozon: price found near 'без Банка' =", v);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ── 3. Ищем зачёркнутую цену (original_price) ──
+    // Структура: <span class="pdp_i9b pdp_bj0 pdp_bi9 tsBody400Small">4 795 ₽</span>
+    const originalPriceSelectors = [
+      ".pdp_i9b.pdp_bj0",
+      ".pdp_bj0.pdp_bi9",
+      ".pdp_jb1 > .pdp_i9b",
+    ];
+
+    for (const selector of originalPriceSelectors) {
+      const el = webPrice.querySelector(selector);
+      if (el) {
+        const v = parsePrice(el.textContent);
+        if (v) {
+          result.original_price = v;
+          console.log(
+            "ShopSpy Ozon: original_price found via",
+            selector,
+            "=",
+            v,
+          );
+          break;
+        }
+      }
+    }
+
+    // Альтернативный способ: ищем через зачёркнутый текст
+    if (!result.original_price) {
+      for (const s of ["s", "del", 'span[style*="line-through"]']) {
+        const el = webPrice.querySelector(s);
+        if (el) {
+          const v = parsePrice(el.textContent);
+          if (v) {
+            result.original_price = v;
+            console.log("ShopSpy Ozon: original_price via", s, "=", v);
+            break;
+          }
+        }
+      }
+    }
+
+    // ── Логика определения цен если не все найдены ──
+    // Если нашли только 2 цены, определяем какая какая
+    const foundPrices = [
+      result.card_price,
+      result.price,
+      result.original_price,
+    ].filter((p) => p !== null);
+
+    if (foundPrices.length === 1 && !result.price) {
+      // Если нашли только одну цену - это основная
+      result.price = foundPrices[0];
+      result.card_price = null;
+      result.original_price = null;
+    } else if (foundPrices.length === 2) {
+      // Если две цены - меньшая это card_price, большая это price или original_price
+      const sorted = foundPrices.sort((a, b) => a - b);
+      if (!result.card_price && !result.price) {
+        result.card_price = sorted[0];
+        result.price = sorted[1];
+      } else if (!result.price && !result.original_price) {
+        result.price = sorted[0];
+        result.original_price = sorted[1];
+      }
+    }
+
+    // Валидация: original_price должна быть больше price, price больше card_price
+    if (
+      result.original_price &&
+      result.price &&
+      result.original_price <= result.price
+    ) {
+      console.log(
+        "ShopSpy Ozon: original_price <= price, swapping or clearing",
+      );
+      result.original_price = null;
+    }
+    if (
+      result.price &&
+      result.card_price &&
+      result.price <= result.card_price
+    ) {
+      console.log("ShopSpy Ozon: price <= card_price, clearing card_price");
+      result.card_price = null;
+    }
+
+    console.log("ShopSpy Ozon: final prices =", result);
+    return result;
+  }
+
+  /**
+   * Возвращает основную цену (без Ozon карты) для совместимости
+   */
+  function getCurrentPrice() {
+    const prices = getAllPrices();
+    return prices.price || prices.card_price;
+  }
+
+  /**
+   * Возвращает зачёркнутую цену
+   */
+  function getOriginalPrice() {
+    const prices = getAllPrices();
+    return prices.original_price;
   }
 
   function getReviews() {
@@ -187,17 +304,27 @@
 
     SHOPSPY.createPanel();
 
-    const price = getCurrentPrice();
-    const originalPrice = getOriginalPrice();
+    const prices = getAllPrices();
     const name = getProductName();
 
-    console.log("ShopSpy Ozon: price =", price);
-    console.log("ShopSpy Ozon: originalPrice =", originalPrice);
+    console.log("ShopSpy Ozon: card_price =", prices.card_price);
+    console.log("ShopSpy Ozon: price =", prices.price);
+    console.log("ShopSpy Ozon: original_price =", prices.original_price);
     console.log("ShopSpy Ozon: name =", name);
 
-    if (price) {
-      console.log("ShopSpy Ozon: sending price to server...");
-      await SHOPSPY.sendPrice(PLATFORM, productId, name, price, originalPrice);
+    // Используем основную цену (без карты) как price, или card_price если нет основной
+    const mainPrice = prices.price || prices.card_price;
+
+    if (mainPrice) {
+      console.log("ShopSpy Ozon: sending prices to server...");
+      await SHOPSPY.sendPrice(
+        PLATFORM,
+        productId,
+        name,
+        mainPrice,
+        prices.original_price,
+        prices.card_price,
+      );
     } else {
       console.log("ShopSpy Ozon: price is null, NOT sending");
     }
@@ -214,8 +341,9 @@
       analysis: h.analysis,
       reviews: null,
       productName: name,
-      price,
-      originalPrice,
+      price: mainPrice,
+      originalPrice: prices.original_price,
+      cardPrice: prices.card_price,
       platform: PLATFORM,
       productId,
       getReviews,

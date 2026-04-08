@@ -15,7 +15,7 @@ const SHOPSPY = {
 
   // ── API ──
 
-  async sendPrice(platform, productId, name, price, originalPrice) {
+  async sendPrice(platform, productId, name, price, originalPrice, cardPrice) {
     try {
       await fetch(`${this.API_BASE}/api/price`, {
         method: "POST",
@@ -26,6 +26,7 @@ const SHOPSPY = {
           product_name: name,
           price,
           original_price: originalPrice,
+          card_price: cardPrice,
           url: window.location.href,
         }),
       });
@@ -195,6 +196,7 @@ const SHOPSPY = {
       productName,
       price,
       originalPrice,
+      cardPrice,
       platform,
       productId,
     } = data;
@@ -209,23 +211,55 @@ const SHOPSPY = {
 
     let html = "";
 
-    // ── Блок: Текущая цена ──
-    if (price) {
-      const discount =
+    // ── Блок: Текущие цены ──
+    if (price || cardPrice) {
+      // Рассчитываем скидки
+      const discountFromOriginal =
         originalPrice && originalPrice > price
           ? Math.round((1 - price / originalPrice) * 100)
           : null;
+      const cardDiscount =
+        originalPrice && cardPrice
+          ? Math.round((1 - cardPrice / originalPrice) * 100)
+          : null;
+      const cardVsRegular =
+        price && cardPrice && cardPrice < price
+          ? Math.round((1 - cardPrice / price) * 100)
+          : null;
 
       html += `<div class="shopspy-section">
-        <div class="shopspy-section-title">💰 Текущая цена</div>
-        <div style="display:flex;align-items:baseline;gap:10px;">
-          <span style="font-size:22px;font-weight:700;color:#fff;">${price.toLocaleString("ru")} ₽</span>`;
+        <div class="shopspy-section-title">💰 Текущие цены</div>`;
 
-      if (originalPrice && originalPrice > price) {
-        html += `<span style="font-size:14px;text-decoration:line-through;color:#666;">${originalPrice.toLocaleString("ru")} ₽</span>
-          <span style="font-size:13px;font-weight:600;color:#e94560;">−${discount}%</span>`;
+      // Цена по карте (если есть)
+      if (cardPrice && cardPrice !== price) {
+        html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
+          <span style="font-size:11px;background:linear-gradient(135deg,#00f,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">Ozon Банк</span>
+          <span style="font-size:24px;font-weight:700;color:#a78bfa;">${cardPrice.toLocaleString("ru")} ₽</span>`;
+        if (cardDiscount) {
+          html += `<span style="font-size:12px;font-weight:600;color:#4ade80;">−${cardDiscount}%</span>`;
+        }
+        html += `</div>`;
       }
-      html += `</div></div>`;
+
+      // Основная цена (без карты)
+      if (price) {
+        html += `<div style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font-size:20px;font-weight:700;color:#fff;">${price.toLocaleString("ru")} ₽</span>`;
+        if (originalPrice && originalPrice > price) {
+          html += `<span style="font-size:13px;text-decoration:line-through;color:#666;">${originalPrice.toLocaleString("ru")} ₽</span>
+            <span style="font-size:12px;font-weight:600;color:#e94560;">−${discountFromOriginal}%</span>`;
+        }
+        html += `</div>`;
+      }
+
+      // Экономия с картой
+      if (cardVsRegular) {
+        html += `<div style="margin-top:8px;padding:8px 10px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:6px;">
+          <span style="font-size:12px;color:#c4b5fd;">💳 С картой Ozon экономия ${cardVsRegular}%</span>
+        </div>`;
+      }
+
+      html += `</div>`;
     }
 
     // ── Блок: Анализ цены ──
@@ -240,11 +274,19 @@ const SHOPSPY = {
     // ── Блок: График цен ──
     if (history && history.length > 1) {
       const prices = history.map((h) => h.price);
-      const min = Math.min(...prices),
-        max = Math.max(...prices),
-        range = max - min || 1;
+      const cardPrices = history
+        .map((h) => h.card_price)
+        .filter((p) => p !== null && p !== undefined);
+
+      // Находим min/max включая обе цены
+      const allValues = [...prices, ...cardPrices];
+      let min = Math.min(...allValues);
+      let max = Math.max(...allValues);
+      const range = max - min || 1;
       const W = 340,
         H = 80;
+
+      // Точки для основной цены
       const pts = prices
         .map(
           (p, i) =>
@@ -252,8 +294,20 @@ const SHOPSPY = {
         )
         .join(" ");
 
-      // Находим лучшую и худшую цену
-      const bestPrice = min;
+      // Точки для цены по карте (фиолетовая линия)
+      let cardPts = "";
+      if (cardPrices.length > 0) {
+        const cardHistory = history.filter(
+          (h) => h.card_price !== null && h.card_price !== undefined,
+        );
+        cardPts = cardHistory
+          .map(
+            (h, i) =>
+              `${(i / (cardHistory.length - 1)) * W},${H - ((h.card_price - min) / range) * (H - 10) - 5}`,
+          )
+          .join(" ");
+      }
+
       const avgPrice =
         analysis.avg_price ||
         Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
@@ -261,12 +315,19 @@ const SHOPSPY = {
       html += `<div class="shopspy-section">
         <div class="shopspy-section-title">📈 История цен (${history.length} точек)</div>
         <svg width="${W}" height="${H}" style="width:100%;background:rgba(255,255,255,0.03);border-radius:8px;">
-          <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#e94560" stop-opacity="0.3"/>
-            <stop offset="100%" stop-color="#e94560" stop-opacity="0"/>
-          </linearGradient></defs>
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e94560" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#e94560" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
           <polygon points="0,${H} ${pts} ${W},${H}" fill="url(#sg)"/>
           <polyline points="${pts}" fill="none" stroke="#e94560" stroke-width="2"/>
+          ${cardPts ? `<polyline points="${cardPts}" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="4,2"/>` : ""}
           <!-- Линия средней цены -->
           <line x1="0" y1="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
                 x2="${W}" y2="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
@@ -277,6 +338,14 @@ const SHOPSPY = {
           <span style="color:#888;">сред: ${avgPrice.toLocaleString("ru")} ₽</span>
           <span>макс: ${max.toLocaleString("ru")} ₽</span>
         </div>
+        ${
+          cardPrices.length > 0
+            ? `<div style="display:flex;gap:16px;font-size:11px;margin-top:6px;">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#e94560;border-radius:1px;"></span>Обычная</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#a78bfa;border-radius:1px;border-top:1px dashed #a78bfa;"></span>Ozon Банк</span>
+        </div>`
+            : ""
+        }
       </div>`;
 
       // ── Блок: Экономия ──

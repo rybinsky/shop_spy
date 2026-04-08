@@ -24,6 +24,9 @@ class PriceRecord(BaseModel):
     original_price: Optional[float] = Field(
         None, description="Original price before discount"
     )
+    card_price: Optional[float] = Field(
+        None, description="Price with platform card (e.g., Ozon Bank card)"
+    )
     url: Optional[str] = Field(None, description="Product URL")
 
     class Config:
@@ -44,6 +47,7 @@ class PriceHistoryItem(BaseModel):
 
     price: float
     original_price: Optional[float] = None
+    card_price: Optional[float] = None
     recorded_at: str
 
 
@@ -59,6 +63,21 @@ class PriceAnalysis(BaseModel):
     min_price: Optional[float] = None
     max_price: Optional[float] = None
     avg_price: Optional[float] = None
+    card_price: Optional[float] = Field(
+        None, description="Current price with platform card"
+    )
+    min_card_price: Optional[float] = Field(
+        None, description="Minimum card price in history"
+    )
+    max_card_price: Optional[float] = Field(
+        None, description="Maximum card price in history"
+    )
+    avg_card_price: Optional[float] = Field(
+        None, description="Average card price in history"
+    )
+    card_discount: Optional[int] = Field(
+        None, description="Discount percentage with card vs regular price"
+    )
     claimed_discount: Optional[int] = None
     real_discount_from_max: Optional[int] = None
     real_discount_from_avg: Optional[int] = None
