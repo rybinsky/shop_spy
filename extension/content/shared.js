@@ -200,6 +200,10 @@ const SHOPSPY = {
       platform,
       productId,
     } = data;
+
+    // Название карты/кошелька в зависимости от платформы
+    const cardName = platform === "wb" ? "WB Кошелёк" : "Ozon Банк";
+    const cardEmoji = platform === "wb" ? "💰" : "💳";
     const icons = {
       good_deal: "✅",
       fake_discount: "🚨",
@@ -233,7 +237,7 @@ const SHOPSPY = {
       // Цена по карте (если есть)
       if (cardPrice && cardPrice !== price) {
         html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
-          <span style="font-size:11px;background:linear-gradient(135deg,#00f,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">Ozon Банк</span>
+          <span style="font-size:11px;background:linear-gradient(135deg,#00f,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">${cardName}</span>
           <span style="font-size:24px;font-weight:700;color:#a78bfa;">${cardPrice.toLocaleString("ru")} ₽</span>`;
         if (cardDiscount) {
           html += `<span style="font-size:12px;font-weight:600;color:#4ade80;">−${cardDiscount}%</span>`;
@@ -255,7 +259,7 @@ const SHOPSPY = {
       // Экономия с картой
       if (cardVsRegular) {
         html += `<div style="margin-top:8px;padding:8px 10px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:6px;">
-          <span style="font-size:12px;color:#c4b5fd;">💳 С картой Ozon экономия ${cardVsRegular}%</span>
+          <span style="font-size:12px;color:#c4b5fd;">${cardEmoji} С ${cardName.replace("Кошелёк", "кошельком").replace("Банк", "картой")} экономия ${cardVsRegular}%</span>
         </div>`;
       }
 
@@ -342,7 +346,7 @@ const SHOPSPY = {
           cardPrices.length > 0
             ? `<div style="display:flex;gap:16px;font-size:11px;margin-top:6px;">
           <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#e94560;border-radius:1px;"></span>Обычная</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#a78bfa;border-radius:1px;border-top:1px dashed #a78bfa;"></span>Ozon Банк</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#a78bfa;border-radius:1px;border-top:1px dashed #a78bfa;"></span>${cardName}</span>
         </div>`
             : ""
         }

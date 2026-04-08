@@ -2,8 +2,9 @@
  * ShopSpy - Wildberries content script
  *
  * Парсинг цен на Wildberries:
- * - Текущая цена (со скидкой)
- * - Оригинальная цена (зачёркнутая)
+ * - card_price: Цена с WB Кошельком (самая низкая)
+ * - price: Цена без WB Кошелька (со скидкой)
+ * - original_price: Зачёркнутая цена без скидки
  */
 (function () {
   "use strict";
@@ -47,140 +48,244 @@
     return document.title.split(/[-|]/)[0].trim();
   }
 
-  function getCurrentPrice() {
-    console.log("ShopSpy WB: getCurrentPrice called");
+  /**
+   * Извлекает все три цены с страницы Wildberries.
+   * Возвращает объект { card_price, price, original_price }
+   */
+  function getAllPrices() {
+    console.log("ShopSpy WB: getAllPrices called");
 
-    // Способ 1: Прямые селекторы цены (приоритет)
-    for (const s of [
-      // Новый дизайн
-      "ins.priceBlockFinalPrice--iToZR",
-      ".priceBlockFinalPrice--iToZR",
-      // Старый дизайн
-      ".price-block__final-price",
-      "span.price-block__final-price",
-      // Альтернативные
-      "[class*='final-price']",
-      "[class*='FinalPrice']",
-    ]) {
-      const el = document.querySelector(s);
+    const result = {
+      card_price: null, // Цена с WB Кошельком
+      price: null, // Цена без WB Кошелька
+      original_price: null, // Зачёркнутая цена без скидки
+    };
+
+    // ── 1. Ищем цену с WB Кошельком ──
+    // Структура: <div class="walletPriceWrap--GjYV7"><h2 class="...color_danger">19 870 ₽</h2>
+    const walletPriceSelectors = [
+      '[class*="walletPriceWrap"] h2',
+      '[class*="walletPrice"] h2.mo-typography_color_danger',
+      ".walletPriceWrap--GjYV7 h2",
+      '[class*="walletPriceWrap"] .mo-typography_color_danger',
+    ];
+
+    for (const selector of walletPriceSelectors) {
+      const el = document.querySelector(selector);
       if (el) {
         const v = parsePrice(el.textContent);
-        console.log('ShopSpy WB: selector "' + s + '" =>', v);
-        if (v) return v;
-      }
-    }
-
-    // Способ 2: Ищем в блоке цен элемент с наибольшей ценой (не зачёркнутый)
-    const priceBlock = document.querySelector(
-      ".price-block, .product-price, [class*='priceBlock']",
-    );
-    if (priceBlock) {
-      // Ищем все элементы с ценой, которые НЕ зачёркнуты
-      const priceElements = priceBlock.querySelectorAll(
-        "span, ins, div:not([style*='line-through']):not(s):not(del)",
-      );
-      let maxPrice = null;
-      for (const el of priceElements) {
-        // Пропускаем зачёркнутые
-        const style = window.getComputedStyle(el);
-        if (style.textDecoration.includes("line-through")) continue;
-
-        const v = parsePrice(el.textContent);
-        if (v && (!maxPrice || v > maxPrice)) {
-          maxPrice = v;
+        if (v) {
+          result.card_price = v;
+          console.log("ShopSpy WB: card_price found via", selector, "=", v);
+          break;
         }
       }
-      if (maxPrice) {
-        console.log(
-          "ShopSpy WB: found price via priceBlock search =",
-          maxPrice,
-        );
-        return maxPrice;
-      }
     }
 
-    // Способ 3: Поиск по тексту с ₽
-    const allText = document.body.innerText;
-    const priceMatches = allText.match(/(\d[\d\s]*)\s*₽/g);
-    if (priceMatches) {
-      // Ищем цену в основном блоке товара
-      const mainContent = document.querySelector(
-        ".product-page, .product-detail, main, [class*='product']",
-      );
-      if (mainContent) {
-        const prices = [];
-        const walker = document.createTreeWalker(
-          mainContent,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false,
-        );
-        let node;
-        while ((node = walker.nextNode())) {
-          const text = node.textContent;
-          const match = text.match(/(\d[\d\s]*)\s*₽/);
-          if (match) {
-            const v = parsePrice(match[1]);
-            if (v) prices.push(v);
+    // Альтернативный способ: ищем по тексту "с WB Кошельком"
+    if (!result.card_price) {
+      const allElements = document.querySelectorAll("span, h2, h3");
+      for (const el of allElements) {
+        const text = el.textContent || "";
+        if (text.includes("WB Кошельком") || text.includes("с кошельком")) {
+          // Цена в соседнем или родительском элементе
+          const parent = el.closest('[class*="walletPrice"], [class*="slide"]');
+          if (parent) {
+            const priceEl = parent.querySelector(
+              "h2, .mo-typography_variant_title2",
+            );
+            if (priceEl && priceEl !== el) {
+              const v = parsePrice(priceEl.textContent);
+              if (v) {
+                result.card_price = v;
+                console.log(
+                  "ShopSpy WB: card_price found near 'WB Кошельком' =",
+                  v,
+                );
+                break;
+              }
+            }
           }
         }
-        if (prices.length > 0) {
-          // Берём последнюю найденную цену (обычно текущая)
-          console.log("ShopSpy WB: all found prices =", prices);
-          return prices[prices.length - 1];
-        }
       }
     }
 
-    console.log("ShopSpy WB: price not found");
-    return null;
-  }
+    // ── 2. Ищем цену без WB Кошелька (основная цена со скидкой) ──
+    // Структура: <div class="finalPriceWrap--tKHRP"><h2>20 485 ₽</h2>
+    const priceSelectors = [
+      '[class*="finalPriceWrap"] h2.mo-typography_color_primary',
+      '[class*="finalPriceWrap"] h2',
+      ".finalPriceWrap--tKHRP h2",
+      '[class*="finalPriceBlock"] h2',
+      ".finalPriceBlock--WasTo h2",
+    ];
 
-  function getOriginalPrice() {
-    console.log("ShopSpy WB: getOriginalPrice called");
-
-    // Ищем зачёркнутую старую цену
-    for (const s of [
-      // Новый дизайн
-      "span.priceBlockOldPrice--qSWAf",
-      ".priceBlockOldPrice--qSWAf",
-      // Старый дизайн
-      ".price-block__old-price del",
-      ".price-block__old-price",
-      // Зачёркнутые элементы
-      "del.price",
-      "s.price",
-      "[class*='old-price']",
-      "[class*='oldPrice']",
-    ]) {
-      const el = document.querySelector(s);
+    for (const selector of priceSelectors) {
+      const el = document.querySelector(selector);
       if (el) {
         const v = parsePrice(el.textContent);
         if (v) {
-          console.log('ShopSpy WB: oldPrice via "' + s + '" =', v);
-          return v;
+          result.price = v;
+          console.log("ShopSpy WB: price found via", selector, "=", v);
+          break;
         }
       }
     }
 
-    // Ищем по стилю line-through в блоке цен
-    const priceBlock = document.querySelector(
-      ".price-block, .product-price, [class*='priceBlock']",
-    );
-    if (priceBlock) {
-      const struckElements = priceBlock.querySelectorAll(
-        "s, del, span[style*='line-through'], [class*='old']",
-      );
-      for (const el of struckElements) {
+    // Альтернативный способ: ищем по тексту "без WB Кошелька"
+    if (!result.price) {
+      const allElements = document.querySelectorAll("span");
+      for (const el of allElements) {
+        const text = el.textContent || "";
+        if (text.includes("без") && text.includes("Кошелька")) {
+          // Цена в соседнем или родительском элементе
+          const parent = el.closest('[class*="finalPrice"], [class*="slide"]');
+          if (parent) {
+            const priceEl = parent.querySelector(
+              "h2, .mo-typography_variant_title2",
+            );
+            if (priceEl && priceEl !== el) {
+              const v = parsePrice(priceEl.textContent);
+              if (v) {
+                result.price = v;
+                console.log("ShopSpy WB: price found near 'без Кошелька' =", v);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: старые селекторы
+    if (!result.price) {
+      for (const s of [
+        "ins.priceBlockFinalPrice--iToZR",
+        ".priceBlockFinalPrice--iToZR",
+        ".price-block__final-price",
+        "span.price-block__final-price",
+        "[class*='final-price']",
+        "[class*='FinalPrice']",
+      ]) {
+        const el = document.querySelector(s);
+        if (el) {
+          const v = parsePrice(el.textContent);
+          if (v) {
+            result.price = v;
+            console.log("ShopSpy WB: price via fallback", s, "=", v);
+            break;
+          }
+        }
+      }
+    }
+
+    // ── 3. Ищем зачёркнутую цену (original_price) ──
+    // Структура: <span class="mo-typography_variant_body-strikethrough">33 321 ₽</span>
+    const originalPriceSelectors = [
+      ".mo-typography_variant_body-strikethrough",
+      '[class*="finalPriceBlock"] .mo-typography_variant_body-strikethrough',
+      ".finalPriceBlock--WasTo .mo-typography_variant_body-strikethrough",
+      '[class*="strikethrough"]',
+    ];
+
+    for (const selector of originalPriceSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
         const v = parsePrice(el.textContent);
         if (v) {
-          console.log("ShopSpy WB: oldPrice via line-through =", v);
-          return v;
+          result.original_price = v;
+          console.log("ShopSpy WB: original_price found via", selector, "=", v);
+          break;
         }
       }
     }
 
-    return null;
+    // Альтернативный способ: ищем через зачёркнутый текст или старые селекторы
+    if (!result.original_price) {
+      for (const s of [
+        "span.priceBlockOldPrice--qSWAf",
+        ".priceBlockOldPrice--qSWAf",
+        ".price-block__old-price del",
+        ".price-block__old-price",
+        "del.price",
+        "s.price",
+        "[class*='old-price']",
+        "[class*='oldPrice']",
+        "s",
+        "del",
+      ]) {
+        const el = document.querySelector(s);
+        if (el) {
+          const v = parsePrice(el.textContent);
+          if (v) {
+            result.original_price = v;
+            console.log("ShopSpy WB: original_price via fallback", s, "=", v);
+            break;
+          }
+        }
+      }
+    }
+
+    // ── Логика определения цен если не все найдены ──
+    const foundPrices = [
+      result.card_price,
+      result.price,
+      result.original_price,
+    ].filter((p) => p !== null);
+
+    if (foundPrices.length === 1 && !result.price) {
+      // Если нашли только одну цену - это основная
+      result.price = foundPrices[0];
+      result.card_price = null;
+      result.original_price = null;
+    } else if (foundPrices.length === 2) {
+      // Если две цены - меньшая это card_price, большая это price или original_price
+      const sorted = foundPrices.sort((a, b) => a - b);
+      if (!result.card_price && !result.price) {
+        result.card_price = sorted[0];
+        result.price = sorted[1];
+      } else if (!result.price && !result.original_price) {
+        result.price = sorted[0];
+        result.original_price = sorted[1];
+      }
+    }
+
+    // Валидация: original_price должна быть больше price, price больше card_price
+    if (
+      result.original_price &&
+      result.price &&
+      result.original_price <= result.price
+    ) {
+      console.log("ShopSpy WB: original_price <= price, clearing");
+      result.original_price = null;
+    }
+    if (
+      result.price &&
+      result.card_price &&
+      result.price <= result.card_price
+    ) {
+      console.log("ShopSpy WB: price <= card_price, clearing card_price");
+      result.card_price = null;
+    }
+
+    console.log("ShopSpy WB: final prices =", result);
+    return result;
+  }
+
+  /**
+   * Возвращает основную цену (без WB Кошелька) для совместимости
+   */
+  function getCurrentPrice() {
+    const prices = getAllPrices();
+    return prices.price || prices.card_price;
+  }
+
+  /**
+   * Возвращает зачёркнутую цену
+   */
+  function getOriginalPrice() {
+    const prices = getAllPrices();
+    return prices.original_price;
   }
 
   function getReviews() {
@@ -217,23 +322,26 @@
 
     SHOPSPY.createPanel();
 
-    const price = getCurrentPrice();
-    const originalPrice = getOriginalPrice();
+    const prices = getAllPrices();
     const name = getProductName();
 
-    console.log("ShopSpy WB: price =", price);
-    console.log("ShopSpy WB: originalPrice =", originalPrice);
+    console.log("ShopSpy WB: card_price =", prices.card_price);
+    console.log("ShopSpy WB: price =", prices.price);
+    console.log("ShopSpy WB: original_price =", prices.original_price);
     console.log("ShopSpy WB: name =", name);
 
-    if (price) {
-      console.log("ShopSpy WB: sending price to server...");
+    // Используем основную цену (без кошелька) как price, или card_price если нет основной
+    const mainPrice = prices.price || prices.card_price;
+
+    if (mainPrice) {
+      console.log("ShopSpy WB: sending prices to server...");
       await SHOPSPY.sendPrice(
         PLATFORM,
         productId,
         name,
-        price,
-        originalPrice,
-        null,
+        mainPrice,
+        prices.original_price,
+        prices.card_price,
       );
     } else {
       console.log("ShopSpy WB: price is null, NOT sending");
@@ -252,9 +360,9 @@
       analysis: h.analysis,
       reviews: null,
       productName: name,
-      price,
-      originalPrice,
-      cardPrice: null,
+      price: mainPrice,
+      originalPrice: prices.original_price,
+      cardPrice: prices.card_price,
       platform: PLATFORM,
       productId,
       getReviews,
