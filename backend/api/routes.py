@@ -40,6 +40,9 @@ from backend.models.schemas import (
     UserInfoResponse,
     UserProductItem,
     UserProductsResponse,
+    UserPurchaseItem,
+    UserPurchaseRequest,
+    UserPurchasesResponse,
     UserStatsSummary,
     UserViewRequest,
 )
@@ -605,3 +608,42 @@ def get_user_activity(
     """Get user activity for the last N days."""
     activity = user_stats.get_activity_stats(telegram_id, days)
     return UserActivityResponse(activity=[DailyActivity(**a) for a in activity])
+
+
+@api_router.post("/stats/purchase", response_model=SuccessResponse)
+def record_user_purchase(
+    data: UserPurchaseRequest,
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Save or update a user's purchase."""
+    try:
+        user_stats.record_purchase(
+            telegram_id=data.telegram_id,
+            platform=data.platform,
+            product_id=data.product_id,
+            product_name=data.product_name,
+            purchase_price=data.purchase_price,
+            purchase_date=data.purchase_date,
+            current_price=data.current_price,
+            card_price=data.card_price,
+            avg_price=data.avg_price,
+            original_price=data.original_price,
+        )
+        return SuccessResponse(status="ok", message="Purchase saved")
+    except ValueError as e:
+        logger.warning(f"Invalid purchase payload: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to save purchase: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/stats/purchases", response_model=UserPurchasesResponse)
+def get_user_purchases(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    limit: int = Query(default=50, ge=1, le=100),
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Get list of user purchases."""
+    purchases = user_stats.get_user_purchases(telegram_id, limit)
+    return UserPurchasesResponse(purchases=[UserPurchaseItem(**p) for p in purchases])

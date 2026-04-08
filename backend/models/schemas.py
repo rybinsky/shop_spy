@@ -331,6 +331,8 @@ class UserStatsSummary(BaseModel):
     total_saved: float
     monthly_views: int
     monthly_saved: float
+    purchased_count: int = 0
+    real_saved_total: float = 0
     best_deal: Optional[BestDeal] = None
 
 
@@ -342,15 +344,58 @@ class UserProductItem(BaseModel):
     product_name: Optional[str] = None
     price: Optional[float] = None
     card_price: Optional[float] = None
+    avg_price: Optional[float] = None
     original_price: Optional[float] = None
     saved_amount: float
     last_view: str
+    purchase_price: Optional[float] = None
+    purchased_at: Optional[str] = None
 
 
 class UserProductsResponse(BaseModel):
     """Response model for user's products list."""
 
     products: list[UserProductItem]
+
+
+class UserPurchaseRequest(BaseModel):
+    """Request model for saving user's purchase."""
+
+    telegram_id: int = Field(..., description="Telegram user ID")
+    platform: str = Field(..., description="Platform identifier")
+    product_id: str = Field(..., description="Product ID")
+    product_name: Optional[str] = Field(None, description="Product name")
+    purchase_price: float = Field(..., gt=0, description="Actual purchase price")
+    purchase_date: Optional[str] = Field(
+        None,
+        description="Purchase date in ISO format or YYYY-MM-DD",
+    )
+    current_price: Optional[float] = Field(None, description="Current product price")
+    card_price: Optional[float] = Field(None, description="Card/wallet price")
+    avg_price: Optional[float] = Field(None, description="Average price from history")
+    original_price: Optional[float] = Field(None, description="Original price")
+
+
+class UserPurchaseItem(BaseModel):
+    """Saved user purchase."""
+
+    platform: str
+    product_id: str
+    product_name: Optional[str] = None
+    purchase_price: float
+    current_price: Optional[float] = None
+    card_price: Optional[float] = None
+    avg_price: Optional[float] = None
+    original_price: Optional[float] = None
+    saved_vs_avg: float
+    saved_vs_original: float
+    purchased_at: str
+
+
+class UserPurchasesResponse(BaseModel):
+    """Response model for user's purchases list."""
+
+    purchases: list[UserPurchaseItem]
 
 
 class DailyActivity(BaseModel):

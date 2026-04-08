@@ -195,6 +195,32 @@ class Database:
 
             CREATE INDEX IF NOT EXISTS idx_user_stats_created
             ON user_stats(telegram_id, created_at);
+
+            -- User purchases (real purchases with manual price input)
+            CREATE TABLE IF NOT EXISTS user_purchases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                product_name TEXT,
+                purchase_price REAL NOT NULL,
+                current_price REAL,
+                card_price REAL,
+                avg_price REAL,
+                original_price REAL,
+                saved_vs_avg REAL DEFAULT 0,
+                saved_vs_original REAL DEFAULT 0,
+                purchased_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (telegram_id, platform, product_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_user_purchases_telegram
+            ON user_purchases(telegram_id, purchased_at);
+
+            CREATE INDEX IF NOT EXISTS idx_user_purchases_product
+            ON user_purchases(telegram_id, platform, product_id);
         """
         )
         # Migration: Add card_price column if it doesn't exist
