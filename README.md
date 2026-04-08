@@ -78,9 +78,6 @@ python -m backend.main
 | `TELEGRAM_BOT_TOKEN` | Токен Telegram бота | — |
 | `GEMINI_API_KEY` | API ключ Google Gemini (бесплатно) | — |
 | `ANTHROPIC_API_KEY` | API ключ Claude (платно) | — |
-| `CRAWL_INTERVAL` | Интервал проверки цен (сек) | `21600` (6 ч) |
-| `CRAWLER_TIMEOUT` | Таймаут запросов краулера (сек) | `10` |
-| `REQUEST_DELAY` | Задержка между запросами (сек) | `2.0` |
 | `RATE_LIMIT_PER_IP` | Лимит AI-запросов в день на IP | `10` |
 | `RATE_LIMIT_GLOBAL` | Глобальный лимит AI-запросов | `200` |
 | `ENVIRONMENT` | Окружение: `development` / `production` | `development` |
@@ -155,14 +152,12 @@ shopspy/
 │   ├── models/
 │   │   └── schemas.py       # Pydantic модели
 │   ├── services/
-│   │   ├── crawler.py       # Фоновый сборщик цен
 │   │   ├── price_analyzer.py # Анализ цен
 │   │   └── ai_analyzer.py   # AI-анализ отзывов
 │   ├── telegram_bot/
 │   │   └── bot.py           # Telegram бот
 │   └── utils/
-│       ├── logging.py       # Настройка логирования
-│       └── marketplace_api.py # API маркетплейсов
+│       └── logging.py       # Настройка логирования
 ├── extension/
 │   ├── manifest.json
 │   ├── content/
@@ -186,11 +181,10 @@ shopspy/
 Доступна по адресу `/admin`. Позволяет:
 
 - **Просматривать статистику**: пользователи, товары, записи цен, отслеживания
-- **Мониторить конфигурацию**: интервал краулера, AI провайдер, статус Telegram
+- **Мониторить конфигурацию**: AI провайдер, статус Telegram
 - **Управлять пользователями**: список всех пользователей, их статусы, количество отслеживаний
 - **Просматривать отслеживания**: все активные алерты с ценами и целевыми значениями
 - **Следить за активностью**: последние записи цен и созданные отслеживания
-- **Запускать краулер вручную**: кнопка для принудительного обновления цен
 
 ### API Endpoints
 
@@ -215,7 +209,6 @@ shopspy/
 | `GET` | `/api/admin/stats` | Детальная статистика |
 | `GET` | `/api/admin/users` | Все пользователи |
 | `GET` | `/api/admin/alerts` | Все отслеживания |
-| `POST` | `/api/crawl` | Запустить краулер |
 | `GET` | `/health` | Health check |
 | `HEAD` | `/health` | Health check (UptimeRobot) |
 
@@ -269,10 +262,12 @@ services:
 
 ### После деплоя
 
-Обновите `extension/popup/popup.js`:
+Обновите `extension/config.js`:
 
 ```javascript
-const API_BASE = "https://ваш-приложение.onrender.com";
+const SHOPSPY_CONFIG = {
+  API_BASE: "https://ваш-приложение.onrender.com",
+};
 ```
 
 Пересоберите и переустановите расширение.

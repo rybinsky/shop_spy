@@ -1,25 +1,43 @@
 /**
  * ShopSpy - Ozon content script
  *
- * Берём цену БЕЗ Ozon Банка (вторая строка в блоке цен).
+ * Парсинг цен на Ozon:
+ * - Основная цена (без скидки Ozon Банка)
+ * - Зачёркнутая старая цена
  */
 (function () {
   "use strict";
   const PLATFORM = "ozon";
 
   /**
-   * Извлекает первое число перед ₽ из строки.
-   * "26 990 ₽" → 26990,  "25 910 ₽2 699 ₽" → 25910 (первое)
+   * Извлекает число из строки цены.
+   * "26 990 ₽" → 26990
    */
-  function parseFirstPrice(text) {
+  function parsePrice(text) {
     if (!text) return null;
-    const m = text.match(/(\d[\d\s\u00a0\u2009]*)\s*₽/);
-    if (!m) return null;
-    const v = parseFloat(m[1].replace(/[\s\u00a0\u2009]/g, ""));
-    return v > 0 ? v : null;
+    // Удаляем всё кроме цифр
+    const cleaned = text.replace(/[^\d]/g, "");
+    const v = parseFloat(cleaned);
+    return v > 0 && v < 100_000_000 ? v : null;
+  }
+
+  /**
+   * Находит все цены в элементе и возвращает массив чисел.
+   */
+  function extractAllPrices(element) {
+    const prices = [];
+    const text = element.textContent || "";
+    // Ищем все паттерны цен: число + ₽
+    const matches = text.matchAll(/(\d[\d\s\u00a0\u2009]*)\s*₽/g);
+    for (const match of matches) {
+      const v = parsePrice(match[1]);
+      if (v) prices.push(v);
+    }
+    return prices;
   }
 
   function getProductId() {
+    // /product/nazvanie-12345/ или /product/12345/
     const m = window.location.pathname.match(/\/product\/[^/]*-(\d+)\/?/);
     return m ? m[1] : null;
   }
@@ -39,59 +57,83 @@
   function getCurrentPrice() {
     console.log("ShopSpy Ozon: getCurrentPrice called");
 
+    // Основной виджет с ценой
     const webPrice = document.querySelector('[data-widget="webPrice"]');
-    if (!webPrice) return null;
+    if (!webPrice) {
+      console.log("ShopSpy Ozon: webPrice widget not found");
+      return null;
+    }
 
-    // Ищем строку "без Ozon Банка" и берём цену из того же контейнера
+    // Способ 1: Ищем контейнер с текстом "без Ozon Банка"
     const allSpans = webPrice.querySelectorAll("span");
     for (const span of allSpans) {
-      if (span.textContent.includes("без") && span.textContent.includes("Банка")) {
-        // Цена — в родительском блоке этого span, ищем ближайшее число с ₽
-        const parent = span.closest("div") || span.parentElement;
+      const text = span.textContent || "";
+      if (text.includes("без") && text.includes("Банка")) {
+        // Цена в соседнем или родительском элементе
+        const parent = span.parentElement;
         if (parent) {
-          const v = parseFirstPrice(parent.textContent);
-          console.log("ShopSpy Ozon: price near 'без Банка' =", v);
-          if (v) return v;
+          const prices = extractAllPrices(parent);
+          console.log("ShopSpy Ozon: prices near 'без Банка' =", prices);
+          if (prices.length > 0) return prices[0];
         }
       }
     }
 
-    // Fallback — все цены из webPrice, берём вторую (первая = с банком)
-    const allPrices = [];
-    for (const raw of webPrice.textContent.matchAll(/(\d[\d\s\u00a0\u2009]*)\s*₽/g)) {
-      const clean = raw[1].replace(/[\s\u00a0\u2009]/g, "");
-      const v = parseFloat(clean);
-      if (v > 0 && v < 100_000_000) allPrices.push(v);
+    // Способ 2: Анализируем структуру webPrice
+    // Обычно: первая цена = со скидкой банка, вторая = обычная
+    const allPrices = extractAllPrices(webPrice);
+    console.log("ShopSpy Ozon: all extracted prices =", allPrices);
+
+    if (allPrices.length >= 2) {
+      // Если 2+ цены, берём вторую (обычная цена без банка)
+      // Сортируем по убыванию и берём вторую по величине или вторую по порядку
+      return allPrices[1];
     }
-    console.log("ShopSpy Ozon: all prices in widget =", allPrices);
+    if (allPrices.length === 1) {
+      return allPrices[0];
+    }
 
-    // Если есть 2+ цен — вторая это "без банка", если одна — берём её
-    if (allPrices.length >= 2) return allPrices[1];
-    if (allPrices.length === 1) return allPrices[0];
+    // Способ 3: Прямой поиск по селекторам цены
+    for (const s of [
+      '[data-widget="webPrice"] .m4_9',
+      '[data-widget="webPrice"] [class*="m4_"]',
+    ]) {
+      const el = document.querySelector(s);
+      if (el) {
+        const v = parsePrice(el.textContent);
+        if (v) {
+          console.log("ShopSpy Ozon: found via selector", s, "=", v);
+          return v;
+        }
+      }
+    }
 
+    console.log("ShopSpy Ozon: price not found");
     return null;
   }
 
   function getOriginalPrice() {
     console.log("ShopSpy Ozon: getOriginalPrice called");
 
-    // Зачёркнутая цена (line-through)
+    // Ищем зачёркнутую цену (старая цена до скидки)
     for (const s of [
+      '[data-widget="webPrice"] s',
+      '[data-widget="webPrice"] del',
       '[data-widget="webPrice"] span[style*="line-through"]',
-      'span[style*="line-through"]',
+      '[data-widget="webPrice"] [class*="b9i"]',
     ]) {
       const el = document.querySelector(s);
       if (el) {
-        const v = parseFirstPrice(el.textContent);
-        console.log("ShopSpy Ozon: oldPrice =", v);
+        const v = parsePrice(el.textContent);
+        console.log("ShopSpy Ozon: oldPrice via", s, "=", v);
         if (v) return v;
       }
     }
 
-    // Fallback — класс зачёркнутой цены
+    // Альтернатива: ищем элемент с классом зачёркнутой цены
     const oldEl = document.querySelector(".pdp_bj.pdp_b0j.pdp_b9i, .pdp_b9i");
     if (oldEl) {
-      const v = parseFirstPrice(oldEl.textContent);
+      const v = parsePrice(oldEl.textContent);
       if (v) return v;
     }
 

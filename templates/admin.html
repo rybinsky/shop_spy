@@ -598,12 +598,6 @@
                 <div class="card">
                     <div class="config-grid">
                         <div class="config-item">
-                            <div class="config-label">Интервал краулера</div>
-                            <div class="config-value" id="config-crawler">
-                                —
-                            </div>
-                        </div>
-                        <div class="config-item">
                             <div class="config-label">AI провайдер</div>
                             <div class="config-value" id="config-ai">—</div>
                         </div>
@@ -746,13 +740,6 @@
                         <button class="btn btn-primary" onclick="loadData()">
                             🔄 Обновить
                         </button>
-                        <button
-                            class="btn btn-secondary"
-                            onclick="triggerCrawl()"
-                            id="crawl-btn"
-                        >
-                            🕷️ Запустить краулер
-                        </button>
                     </div>
                 </div>
             </div>
@@ -854,8 +841,6 @@
                         stats.overview?.platforms?.ozon || 0;
 
                     // Update config
-                    document.getElementById("config-crawler").textContent =
-                        `${stats.config?.crawler_interval_hours || 0} ч`;
                     document.getElementById("config-ai").textContent =
                         stats.config?.ai_provider || "не настроен";
 
@@ -1041,30 +1026,6 @@
                     .slice(0, 20)
                     .map((a) => `<div class="activity-item">${a.html}</div>`)
                     .join("");
-            }
-
-            // Trigger crawl
-            async function triggerCrawl() {
-                const btn = document.getElementById("crawl-btn");
-                try {
-                    btn.disabled = true;
-                    btn.textContent = "⏳ Запуск...";
-
-                    const resp = await fetch("/api/crawl", { method: "POST" });
-                    const data = await resp.json();
-
-                    alert(data.message || "Краулер запущен");
-
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.textContent = "🕷️ Запустить краулер";
-                        loadData();
-                    }, 3000);
-                } catch (e) {
-                    alert("Ошибка запуска краулера: " + e.message);
-                    btn.disabled = false;
-                    btn.textContent = "🕷️ Запустить краулер";
-                }
             }
 
             // Auto-refresh

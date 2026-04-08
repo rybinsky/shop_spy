@@ -6,6 +6,7 @@ FastAPI routes for price tracking, alerts, and AI analysis.
 
 import hashlib
 import hmac
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -223,8 +224,6 @@ async def analyze_reviews(
 
         if cached and cached["summary"]:
             try:
-                import json
-
                 summary = json.loads(cached["summary"])
                 logger.debug(
                     f"Returning cached analysis for {data.platform}:{data.product_id}"
@@ -237,8 +236,6 @@ async def analyze_reviews(
     result = await ai_analyzer.analyze_reviews(data.product_name, data.reviews)
 
     # Cache result
-    import json
-
     with db.get_connection() as conn:
         conn.execute(
             """INSERT INTO reviews_cache (platform, product_id, summary)
