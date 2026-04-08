@@ -337,6 +337,10 @@
       </div>
     `;
 
+    // Убедимся, что root занимает всё доступное пространство
+    $("root").style.display = "flex";
+    $("root").style.flexDirection = "column";
+
     updateSwipePosition(false);
     updateBottomNav();
     bindCommonEvents();
@@ -371,8 +375,9 @@
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    // Scroll to top of new page
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Прокрутка активной страницы в начало
+    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
+    if (activePage) activePage.scrollTop = 0;
   }
 
   function setActiveViewByIndex(idx) {
@@ -380,7 +385,8 @@
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
+    if (activePage) activePage.scrollTop = 0;
   }
 
   /* ── Swipe handling ── */
@@ -397,7 +403,6 @@
     const threshold = 50;
 
     container.addEventListener("touchstart", (e) => {
-      // Don't swipe if modal is open
       if ($("purchase-modal").classList.contains("open")) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -412,15 +417,16 @@
       const diffX = currentX - startX;
       const diffY = e.touches[0].clientY - startY;
 
-      // Determine direction on first significant move
       if (isHorizontal === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
         isHorizontal = Math.abs(diffX) > Math.abs(diffY);
       }
 
       if (!isHorizontal) return;
 
+      // Запрещаем браузерную прокрутку только при горизонтальном свайпе
+      e.preventDefault();
+
       const track = $("swipe-track");
-      // Prevent overscroll at edges
       if (state.activeViewIndex === 0 && diffX > 0) return;
       if (state.activeViewIndex === VIEWS.length - 1 && diffX < 0) return;
 
@@ -428,7 +434,7 @@
       const baseOffset = -state.activeViewIndex * 100;
       const dragPercent = (diffX / container.offsetWidth) * 100;
       track.style.transform = `translateX(${baseOffset + dragPercent}%)`;
-    }, { passive: true });
+    }, { passive: false });
 
     container.addEventListener("touchend", () => {
       if (!isDragging) return;
@@ -582,8 +588,8 @@
 
         await loadData();
         closePurchaseModal();
-        // Re-render and go to purchases
-        state.activeViewIndex = 2; // purchases
+        // Переключаемся на вкладку "Покупки"
+        state.activeViewIndex = 2;
         renderRoot();
       } catch (error) {
         errorBox.textContent = `Не удалось сохранить покупку: ${error.message || error}`;
