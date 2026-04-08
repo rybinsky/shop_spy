@@ -1,6 +1,6 @@
 /*
  * ShopSpy Mini App
- * Красивый дашборд со статистикой, товарами, быстрыми действиями и формой покупки.
+ * Дашборд со статистикой, свайпами между экранами и нижней навигацией.
  */
 
 (function () {
@@ -8,14 +8,10 @@
 
   const DEFAULT_API_BASE = "";
   const STORAGE_KEY_API_BASE = "shopspy_api_base";
-  const VIEW_OVERVIEW = "overview";
-  const VIEW_PRODUCTS = "products";
-  const VIEW_ACTIVITY = "activity";
-  const VIEW_PURCHASES = "purchases";
+  const VIEWS = ["overview", "products", "purchases", "activity"];
   const PRICE_PRESET_CURRENT = "current";
   const PRICE_PRESET_CARD = "card";
   const PRICE_PRESET_CUSTOM = "custom";
-  const DAY_MS = 24 * 60 * 60 * 1000;
 
   const state = {
     telegramId: null,
@@ -23,10 +19,12 @@
     products: [],
     activity: [],
     purchases: [],
-    activeView: VIEW_OVERVIEW,
+    activeViewIndex: 0,
     activeModalProduct: null,
     selectedPricePreset: PRICE_PRESET_CURRENT,
   };
+
+  /* ── Helpers ── */
 
   function $(id) {
     return document.getElementById(id);
@@ -122,15 +120,7 @@
     return await response.json();
   }
 
-  function renderError(message, detail) {
-    $("root").innerHTML = `
-      <div class="error-card">
-        <div class="section-title">Что-то пошло не так</div>
-        <div>${escapeHtml(message)}</div>
-        ${detail ? `<div class="error-detail">${escapeHtml(detail)}</div>` : ""}
-      </div>
-    `;
-  }
+  /* ── Badge ── */
 
   function getHeroBadge(summary) {
     if (!summary) return "Новичок";
@@ -140,43 +130,11 @@
     return "Новичок";
   }
 
-  function buildTabs() {
-    const tabs = [
-      { key: VIEW_OVERVIEW, label: "Обзор" },
-      { key: VIEW_PRODUCTS, label: "Товары" },
-      { key: VIEW_PURCHASES, label: "Покупки" },
-      { key: VIEW_ACTIVITY, label: "Активность" },
-    ];
-
-    return `
-      <div class="tabs">
-        ${tabs
-          .map(
-            (tab) => `
-              <button class="tab-btn ${state.activeView === tab.key ? "active" : ""}" data-view="${tab.key}">
-                ${tab.label}
-              </button>
-            `,
-          )
-          .join("")}
-      </div>
-    `;
-  }
-
-  function buildQuickActions() {
-    return `
-      <div class="quick-actions">
-        <button class="quick-btn" data-view-jump="${VIEW_PRODUCTS}">🛍 Мои товары</button>
-        <button class="quick-btn" data-view-jump="${VIEW_PURCHASES}">✅ Покупки</button>
-        <button class="quick-btn" data-view-jump="${VIEW_ACTIVITY}">📈 Активность</button>
-      </div>
-    `;
-  }
+  /* ── Build views ── */
 
   function buildOverview() {
     const summary = state.summary || {};
     const best = summary.best_deal;
-
     const recentProducts = state.products.slice(0, 3).map(buildProductCard).join("");
 
     return `
@@ -203,7 +161,7 @@
 
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-title">Товаров просмотрено</div>
+          <div class="stat-title">Просмотрено</div>
           <div class="stat-value">${summary.total_viewed || 0}</div>
           <div class="stat-hint">уникальных карточек</div>
         </div>
@@ -218,34 +176,32 @@
           <div class="stat-hint">просмотров</div>
         </div>
         <div class="stat-card">
-          <div class="stat-title">За месяц выгода</div>
+          <div class="stat-title">Выгода за месяц</div>
           <div class="stat-value accent">${formatMoney(summary.monthly_saved)}</div>
           <div class="stat-hint">по цене ниже средней</div>
         </div>
       </div>
 
-      ${buildQuickActions()}
+      <div class="quick-actions">
+        <button class="quick-btn" data-view-jump="products">🛍 Товары</button>
+        <button class="quick-btn" data-view-jump="purchases">✅ Покупки</button>
+        <button class="quick-btn" data-view-jump="activity">📈 Активность</button>
+      </div>
 
-      ${
-        best
-          ? `
-          <section class="panel">
-            <div class="section-title">Лучшая находка</div>
-            <div class="best-card">
-              <div>
-                <div class="best-name">${escapeHtml(best.product_name || best.product_id)}</div>
-                <div class="best-meta">${platformLabel(best.platform).text} · Экономия ${formatMoney(best.saved_amount)}</div>
-              </div>
-            </div>
-          </section>
-        `
-          : ""
-      }
+      ${best ? `
+        <section class="panel">
+          <div class="section-title">Лучшая находка</div>
+          <div class="best-card">
+            <div class="best-name">${escapeHtml(best.product_name || best.product_id)}</div>
+            <div class="best-meta">${platformLabel(best.platform).text} · Экономия ${formatMoney(best.saved_amount)}</div>
+          </div>
+        </section>
+      ` : ""}
 
       <section class="panel">
         <div class="section-head">
           <div class="section-title">Свежие товары</div>
-          <button class="link-btn" data-view-jump="${VIEW_PRODUCTS}">Все</button>
+          <button class="link-btn" data-view-jump="products">Все</button>
         </div>
         <div class="stack">${recentProducts || `<div class="empty-state">Пока пусто — открой товары в расширении.</div>`}</div>
       </section>
@@ -303,7 +259,7 @@
   function buildPurchaseCard(purchase) {
     const pl = platformLabel(purchase.platform);
     return `
-      <article class="product-card purchase-card">
+      <article class="product-card">
         <div class="product-head">
           <div class="product-name">${escapeHtml(purchase.product_name || purchase.product_id)}</div>
           <div class="pill ${pl.cls}">${pl.text}</div>
@@ -328,7 +284,7 @@
       <section class="panel">
         <div class="section-head">
           <div class="section-title">Мои покупки</div>
-          <div class="section-note">Реальная экономия считается по введённой цене</div>
+          <div class="section-note">Реальная экономия по введённой цене</div>
         </div>
         <div class="stack">
           ${state.purchases.length ? state.purchases.map(buildPurchaseCard).join("") : `<div class="empty-state">Пока нет покупок — нажми «Купил» у нужного товара.</div>`}
@@ -343,48 +299,161 @@
       <section class="panel">
         <div class="section-title">Активность</div>
         <div class="stack">
-          ${
-            rows.length
-              ? rows
-                  .map(
-                    (row) => `
-                    <article class="activity-card">
-                      <div class="product-head">
-                        <div class="product-name">${escapeHtml(row.date)}</div>
-                        <div class="pill">${row.views} просмотров</div>
-                      </div>
-                      <div class="meta-row">
-                        <span>Экономия <b class="money-positive">${formatMoney(row.saved)}</b></span>
-                      </div>
-                    </article>
-                  `,
-                  )
-                  .join("")
-              : `<div class="empty-state">Активности пока нет.</div>`
+          ${rows.length
+            ? rows.map((row) => `
+                <article class="activity-card">
+                  <div class="product-head">
+                    <div class="product-name">${escapeHtml(row.date)}</div>
+                    <div class="pill">${row.views} просмотров</div>
+                  </div>
+                  <div class="meta-row">
+                    <span>Экономия <b class="money-positive">${formatMoney(row.saved)}</b></span>
+                  </div>
+                </article>
+              `).join("")
+            : `<div class="empty-state">Активности пока нет.</div>`
           }
         </div>
       </section>
     `;
   }
 
+  /* ── Rendering ── */
+
+  const viewBuilders = [buildOverview, buildProducts, buildPurchases, buildActivity];
+
   function renderRoot() {
-    const subtitle = $("subtitle");
-    subtitle.textContent = `Telegram ID: ${state.telegramId}`;
+    $("subtitle").textContent = `Telegram ID: ${state.telegramId}`;
+    $("bottom-nav").style.display = "";
 
-    let content = "";
-    if (state.activeView === VIEW_OVERVIEW) content = buildOverview();
-    if (state.activeView === VIEW_PRODUCTS) content = buildProducts();
-    if (state.activeView === VIEW_PURCHASES) content = buildPurchases();
-    if (state.activeView === VIEW_ACTIVITY) content = buildActivity();
+    // Build all 4 pages for swipe
+    const pages = viewBuilders.map((builder, i) => {
+      return `<div class="swipe-page" data-page="${i}"><div class="view-content">${builder()}</div></div>`;
+    }).join("");
 
-    $("root").innerHTML = `${buildTabs()}<div class="view-content">${content}</div>`;
+    $("root").innerHTML = `
+      <div class="swipe-container" id="swipe-container">
+        <div class="swipe-track" id="swipe-track">${pages}</div>
+      </div>
+    `;
+
+    updateSwipePosition(false);
+    updateBottomNav();
     bindCommonEvents();
+    initSwipe();
   }
 
-  function setActiveView(view) {
-    state.activeView = view;
-    renderRoot();
+  function updateSwipePosition(animate) {
+    const track = $("swipe-track");
+    if (!track) return;
+    if (animate) {
+      track.classList.remove("swiping");
+    } else {
+      track.classList.add("swiping");
+      // Force reflow, then remove to allow future animations
+      void track.offsetWidth;
+      track.classList.remove("swiping");
+    }
+    track.style.transform = `translateX(-${state.activeViewIndex * 100}%)`;
   }
+
+  function updateBottomNav() {
+    document.querySelectorAll(".nav-item").forEach((btn) => {
+      const viewKey = btn.dataset.nav;
+      const idx = VIEWS.indexOf(viewKey);
+      btn.classList.toggle("active", idx === state.activeViewIndex);
+    });
+  }
+
+  function setActiveView(viewKey) {
+    const idx = VIEWS.indexOf(viewKey);
+    if (idx === -1 || idx === state.activeViewIndex) return;
+    state.activeViewIndex = idx;
+    updateSwipePosition(true);
+    updateBottomNav();
+    // Scroll to top of new page
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function setActiveViewByIndex(idx) {
+    if (idx < 0 || idx >= VIEWS.length || idx === state.activeViewIndex) return;
+    state.activeViewIndex = idx;
+    updateSwipePosition(true);
+    updateBottomNav();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ── Swipe handling ── */
+
+  function initSwipe() {
+    const container = $("swipe-container");
+    if (!container) return;
+
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let isDragging = false;
+    let isHorizontal = null;
+    const threshold = 50;
+
+    container.addEventListener("touchstart", (e) => {
+      // Don't swipe if modal is open
+      if ($("purchase-modal").classList.contains("open")) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      currentX = startX;
+      isDragging = true;
+      isHorizontal = null;
+    }, { passive: true });
+
+    container.addEventListener("touchmove", (e) => {
+      if (!isDragging) return;
+      currentX = e.touches[0].clientX;
+      const diffX = currentX - startX;
+      const diffY = e.touches[0].clientY - startY;
+
+      // Determine direction on first significant move
+      if (isHorizontal === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
+        isHorizontal = Math.abs(diffX) > Math.abs(diffY);
+      }
+
+      if (!isHorizontal) return;
+
+      const track = $("swipe-track");
+      // Prevent overscroll at edges
+      if (state.activeViewIndex === 0 && diffX > 0) return;
+      if (state.activeViewIndex === VIEWS.length - 1 && diffX < 0) return;
+
+      track.classList.add("swiping");
+      const baseOffset = -state.activeViewIndex * 100;
+      const dragPercent = (diffX / container.offsetWidth) * 100;
+      track.style.transform = `translateX(${baseOffset + dragPercent}%)`;
+    }, { passive: true });
+
+    container.addEventListener("touchend", () => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      if (!isHorizontal) return;
+
+      const diffX = currentX - startX;
+      const track = $("swipe-track");
+      track.classList.remove("swiping");
+
+      if (Math.abs(diffX) > threshold) {
+        if (diffX < 0 && state.activeViewIndex < VIEWS.length - 1) {
+          state.activeViewIndex++;
+        } else if (diffX > 0 && state.activeViewIndex > 0) {
+          state.activeViewIndex--;
+        }
+      }
+
+      updateSwipePosition(true);
+      updateBottomNav();
+    }, { passive: true });
+  }
+
+  /* ── Purchase modal ── */
 
   function getProductByKey(platform, productId) {
     return state.products.find(
@@ -472,10 +541,7 @@
   }
 
   function bindPurchaseModalEvents(product) {
-    const closeBtn = $("purchase-close-btn");
-    const saveBtn = $("purchase-save-btn");
-
-    closeBtn.addEventListener("click", closePurchaseModal);
+    $("purchase-close-btn").addEventListener("click", closePurchaseModal);
 
     $("purchase-modal-content")
       .querySelectorAll("[data-preset]")
@@ -483,10 +549,11 @@
         btn.addEventListener("click", () => applyPreset(product, btn.dataset.preset));
       });
 
-    saveBtn.addEventListener("click", async () => {
+    $("purchase-save-btn").addEventListener("click", async () => {
       const priceInput = $("purchase-price-input");
       const dateInput = $("purchase-date-input");
       const errorBox = $("purchase-error");
+      const saveBtn = $("purchase-save-btn");
       const purchasePrice = Number(priceInput.value);
 
       if (!purchasePrice || Number.isNaN(purchasePrice) || purchasePrice <= 0) {
@@ -515,7 +582,9 @@
 
         await loadData();
         closePurchaseModal();
-        setActiveView(VIEW_PURCHASES);
+        // Re-render and go to purchases
+        state.activeViewIndex = 2; // purchases
+        renderRoot();
       } catch (error) {
         errorBox.textContent = `Не удалось сохранить покупку: ${error.message || error}`;
         errorBox.classList.remove("hidden");
@@ -526,19 +595,26 @@
     });
   }
 
+  /* ── Event binding ── */
+
   function bindCommonEvents() {
-    document.querySelectorAll("[data-view]").forEach((btn) => {
-      btn.addEventListener("click", () => setActiveView(btn.dataset.view));
+    // Bottom nav
+    document.querySelectorAll(".nav-item[data-nav]").forEach((btn) => {
+      btn.addEventListener("click", () => setActiveView(btn.dataset.nav));
     });
 
+    // Jump buttons inside views
     document.querySelectorAll("[data-view-jump]").forEach((btn) => {
       btn.addEventListener("click", () => setActiveView(btn.dataset.viewJump));
     });
 
+    // Buy buttons
     document.querySelectorAll('[data-action="buy"]').forEach((btn) => {
       btn.addEventListener("click", () => openPurchaseModal(btn.dataset.platform, btn.dataset.productId));
     });
   }
+
+  /* ── Data loading ── */
 
   async function loadData() {
     const [summary, productsResponse, activityResponse, purchasesResponse] = await Promise.all([
@@ -562,6 +638,18 @@
       </div>
     `;
   }
+
+  function renderError(message, detail) {
+    $("root").innerHTML = `
+      <div class="error-card">
+        <div class="section-title">Что-то пошло не так</div>
+        <div>${escapeHtml(message)}</div>
+        ${detail ? `<div class="error-detail">${escapeHtml(detail)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  /* ── Main ── */
 
   async function main() {
     const telegramIdFromTG = getTelegramIdFromWebApp();
@@ -591,6 +679,7 @@
     }
   }
 
+  // Close modal on overlay click
   document.addEventListener("click", (event) => {
     const overlay = $("purchase-modal");
     if (!overlay.classList.contains("open")) return;
