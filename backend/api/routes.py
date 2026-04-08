@@ -13,8 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from backend.config import config
 from backend.db import AlertsRepository, PricesRepository, UsersRepository, get_database
+from backend.db.repositories.user_stats import UserStatsRepository
 from backend.models.schemas import (
     AuthResponse,
+    BestDeal,
+    DailyActivity,
     ErrorResponse,
     PriceAlertCreate,
     PriceAlertItem,
@@ -33,7 +36,12 @@ from backend.models.schemas import (
     TelegramAuthRequest,
     TelegramRegisterRequest,
     TelegramStatusResponse,
+    UserActivityResponse,
     UserInfoResponse,
+    UserProductItem,
+    UserProductsResponse,
+    UserStatsSummary,
+    UserViewRequest,
 )
 from backend.services.ai_analyzer import AIAnalyzer
 from backend.services.price_analyzer import PriceAnalyzer
@@ -70,6 +78,11 @@ def get_users_repo() -> UsersRepository:
 def get_alerts_repo() -> AlertsRepository:
     """Get alerts repository."""
     return AlertsRepository(get_database())
+
+
+def get_user_stats_repo() -> UserStatsRepository:
+    """Get user stats repository."""
+    return UserStatsRepository(get_database())
 
 
 def check_rate_limit(request: Request) -> None:
@@ -532,3 +545,63 @@ def admin_get_detailed_stats(
             "telegram_enabled": config.telegram.enabled,
         },
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# User Statistics API
+# ─────────────────────────────────────────────────────────────
+
+
+@api_router.post("/stats/view", response_model=SuccessResponse)
+def record_user_view(
+    data: UserViewRequest,
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Record a product view by user."""
+    try:
+        user_stats.record_view(
+            telegram_id=data.telegram_id,
+            platform=data.platform,
+            product_id=data.product_id,
+            product_name=data.product_name,
+            price=data.price,
+            card_price=data.card_price,
+            avg_price=data.avg_price,
+            original_price=data.original_price,
+        )
+        return SuccessResponse(status="ok", message="View recorded")
+    except Exception as e:
+        logger.error(f"Failed to record view: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/stats/summary", response_model=UserStatsSummary)
+def get_user_stats_summary(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Get user statistics summary."""
+    summary = user_stats.get_user_summary(telegram_id)
+    return UserStatsSummary(**summary)
+
+
+@api_router.get("/stats/products", response_model=UserProductsResponse)
+def get_user_products(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    limit: int = Query(default=50, ge=1, le=100),
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Get list of products viewed by user."""
+    products = user_stats.get_user_products(telegram_id, limit)
+    return UserProductsResponse(products=[UserProductItem(**p) for p in products])
+
+
+@api_router.get("/stats/activity", response_model=UserActivityResponse)
+def get_user_activity(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    days: int = Query(default=30, ge=1, le=90),
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Get user activity for the last N days."""
+    activity = user_stats.get_activity_stats(telegram_id, days)
+    return UserActivityResponse(activity=[DailyActivity(**a) for a in activity])

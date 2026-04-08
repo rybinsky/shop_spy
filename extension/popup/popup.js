@@ -9,6 +9,7 @@ const state = {
   user: null,
   currentProduct: null,
   trackedProducts: [],
+  stats: null,
   isLoading: true,
 };
 
@@ -44,6 +45,14 @@ function initElements() {
   elements.trackedEmpty = document.getElementById("tracked-empty");
   elements.errorContainer = document.getElementById("error-container");
   elements.errorMsg = document.getElementById("error-msg");
+  elements.statsSection = document.getElementById("stats-section");
+  elements.statViewed = document.getElementById("stat-viewed");
+  elements.statTracked = document.getElementById("stat-tracked");
+  elements.statSaved = document.getElementById("stat-saved");
+  elements.bestDealSection = document.getElementById("best-deal-section");
+  elements.bestDealName = document.getElementById("best-deal-name");
+  elements.bestDealSaved = document.getElementById("best-deal-saved");
+  elements.miniappLink = document.getElementById("miniapp-link");
 }
 
 // Показать/скрыть элемент
@@ -247,6 +256,41 @@ async function loadTrackedProducts(chatId) {
   }
 }
 
+// Загрузка статистики пользователя
+async function loadUserStats(telegramId) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/stats/summary?telegram_id=${telegramId}`,
+    );
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    console.error("Error loading user stats:", e);
+    return null;
+  }
+}
+
+// Рендер статистики
+function renderStats(stats) {
+  if (!stats || !elements.statsSection) return;
+
+  elements.statViewed.textContent = stats.total_viewed || 0;
+  elements.statTracked.textContent = state.trackedProducts.length || 0;
+  elements.statSaved.textContent = stats.total_saved
+    ? stats.total_saved.toLocaleString("ru")
+    : "0";
+
+  if (stats.best_deal && stats.best_deal.saved_amount > 0) {
+    elements.bestDealName.textContent = stats.best_deal.product_name || "Товар";
+    elements.bestDealSaved.textContent = `Сэкономлено: ${stats.best_deal.saved_amount.toLocaleString("ru")} ₽`;
+    show(elements.bestDealSection);
+  } else {
+    hide(elements.bestDealSection);
+  }
+
+  show(elements.statsSection);
+}
+
 // Добавление товара в отслеживание
 async function trackProduct() {
   if (!state.user || !state.currentProduct) return;
@@ -385,6 +429,13 @@ function renderUI() {
     renderTrackedProducts();
   } else {
     hide(elements.trackedSection);
+  }
+
+  // Статистика показывается только для авторизованных пользователей
+  if (state.user && state.stats) {
+    renderStats(state.stats);
+  } else {
+    hide(elements.statsSection);
   }
 }
 
@@ -567,10 +618,13 @@ async function init() {
   // Параллельные запросы для ускорения загрузки
   const promises = [];
   let productIndex = 0;
+  let statsIndex = -1;
 
   if (state.user) {
     promises.push(loadTrackedProducts(state.user.id));
     productIndex = 1; // getCurrentProduct будет вторым
+    promises.push(loadUserStats(state.user.id));
+    statsIndex = 2;
   }
 
   promises.push(getCurrentProduct());
@@ -583,6 +637,9 @@ async function init() {
     // Сохраняем в кэш
     saveTrackedCache(state.trackedProducts);
     state.currentProduct = results[productIndex];
+    if (statsIndex >= 0) {
+      state.stats = results[statsIndex];
+    }
   } else {
     state.currentProduct = results[0];
   }
@@ -603,6 +660,11 @@ async function init() {
   const dashLink = document.getElementById("dashboard-link");
   if (dashLink) {
     dashLink.href = API_BASE;
+  }
+
+  // Set miniapp link
+  if (elements.miniappLink) {
+    elements.miniappLink.href = `${API_BASE}/miniapp/`;
   }
 }
 

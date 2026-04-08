@@ -35,6 +35,46 @@ const SHOPSPY = {
     }
   },
 
+  /**
+   * Отправляет событие просмотра товара в user_stats.
+   *
+   * Особенности:
+   * - не падает если пользователь не авторизован (telegram_id отсутствует)
+   * - анти-спам: не чаще 1 раза на товар за 30 минут
+   */
+  async sendView(platform, productId, productName, price, originalPrice, cardPrice, avgPrice) {
+    const telegramId = await this.getTelegramId();
+    if (!telegramId) return;
+
+    const THROTTLE_MS = 30 * 60 * 1000;
+    const key = `shopspy_view_sent_${telegramId}_${platform}_${productId}`;
+
+    try {
+      const last = Number(localStorage.getItem(key) || "0");
+      if (last && Date.now() - last < THROTTLE_MS) return;
+
+      await fetch(`${this.API_BASE}/api/stats/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegram_id: telegramId,
+          platform,
+          product_id: productId,
+          product_name: productName,
+          price,
+          card_price: cardPrice,
+          avg_price: avgPrice,
+          original_price: originalPrice,
+        }),
+      });
+
+      localStorage.setItem(key, String(Date.now()));
+    } catch (e) {
+      // не шумим, чтобы не мешать пользователю
+      console.log("ShopSpy: не удалось отправить статистику просмотра", e.message);
+    }
+  },
+
   async getHistory(platform, productId) {
     try {
       const r = await fetch(

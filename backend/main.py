@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.api import router
 from backend.config import config
@@ -76,6 +77,12 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api")
+
+# Static files (Telegram Mini App)
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+_miniapp_dir = os.path.join(_static_dir, "miniapp")
+if os.path.isdir(_miniapp_dir):
+    app.mount("/miniapp", StaticFiles(directory=_miniapp_dir, html=True), name="miniapp")
 
 
 # Index page route

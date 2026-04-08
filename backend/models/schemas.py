@@ -295,6 +295,79 @@ class ProductListResponse(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────
+# User Statistics Models
+# ─────────────────────────────────────────────────────────────
+
+
+class UserViewRequest(BaseModel):
+    """Request model for recording a product view."""
+
+    telegram_id: int = Field(..., description="Telegram user ID")
+    platform: str = Field(..., description="Platform identifier")
+    product_id: str = Field(..., description="Product ID")
+    product_name: Optional[str] = Field(None, description="Product name")
+    price: Optional[float] = Field(None, description="Current price")
+    card_price: Optional[float] = Field(None, description="Card/wallet price")
+    avg_price: Optional[float] = Field(None, description="Average price from history")
+    original_price: Optional[float] = Field(None, description="Original price")
+
+
+class BestDeal(BaseModel):
+    """Best deal found by user."""
+
+    product_name: Optional[str] = None
+    platform: str
+    product_id: str
+    price: Optional[float] = None
+    card_price: Optional[float] = None
+    original_price: Optional[float] = None
+    saved_amount: float
+
+
+class UserStatsSummary(BaseModel):
+    """Response model for user statistics summary."""
+
+    total_viewed: int
+    total_saved: float
+    monthly_views: int
+    monthly_saved: float
+    best_deal: Optional[BestDeal] = None
+
+
+class UserProductItem(BaseModel):
+    """Single product in user's list."""
+
+    platform: str
+    product_id: str
+    product_name: Optional[str] = None
+    price: Optional[float] = None
+    card_price: Optional[float] = None
+    original_price: Optional[float] = None
+    saved_amount: float
+    last_view: str
+
+
+class UserProductsResponse(BaseModel):
+    """Response model for user's products list."""
+
+    products: list[UserProductItem]
+
+
+class DailyActivity(BaseModel):
+    """Single day activity."""
+
+    date: str
+    views: int
+    saved: float
+
+
+class UserActivityResponse(BaseModel):
+    """Response model for user activity."""
+
+    activity: list[DailyActivity]
+
+
+# ─────────────────────────────────────────────────────────────
 # Common Response Models
 # ─────────────────────────────────────────────────────────────
 

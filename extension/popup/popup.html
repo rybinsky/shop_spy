@@ -150,6 +150,82 @@
                 cursor: not-allowed;
                 transform: none;
             }
+            .stats-card {
+                padding: 14px;
+                background: rgba(255, 255, 255, 0.04);
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+            }
+            .stats-row {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            .stat-item {
+                flex: 1;
+                text-align: center;
+                padding: 10px;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 8px;
+            }
+            .stat-value {
+                font-size: 22px;
+                font-weight: 700;
+                color: #fff;
+            }
+            .stat-label {
+                font-size: 10px;
+                color: #888;
+                margin-top: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .stats-saved {
+                text-align: center;
+                padding: 12px;
+                background: linear-gradient(
+                    135deg,
+                    rgba(76, 175, 80, 0.1),
+                    rgba(129, 199, 132, 0.05)
+                );
+                border-radius: 8px;
+                border: 1px solid rgba(76, 175, 80, 0.2);
+            }
+            .stats-saved-value {
+                font-size: 26px;
+                font-weight: 700;
+                color: #81c784;
+            }
+            .stats-saved-label {
+                font-size: 11px;
+                color: #a5d6a7;
+                margin-top: 2px;
+            }
+            .stats-best-deal {
+                margin-top: 12px;
+                padding: 10px;
+                background: rgba(255, 193, 7, 0.08);
+                border-radius: 8px;
+                border: 1px solid rgba(255, 193, 7, 0.2);
+            }
+            .stats-best-title {
+                font-size: 11px;
+                color: #ffd54f;
+                font-weight: 600;
+                margin-bottom: 6px;
+            }
+            .stats-best-name {
+                font-size: 12px;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .stats-best-saved {
+                font-size: 11px;
+                color: #81c784;
+                margin-top: 4px;
+            }
             .product-card {
                 padding: 12px;
                 background: rgba(255, 255, 255, 0.04);
@@ -404,6 +480,45 @@
                 </div>
             </div>
 
+            <div id="stats-section" class="section hidden">
+                <div class="section-title">📊 Моя статистика</div>
+                <div class="stats-card">
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-viewed">0</div>
+                            <div class="stat-label">👁️ Просмотрено</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-tracked">0</div>
+                            <div class="stat-label">🔔 Отслеживаю</div>
+                        </div>
+                    </div>
+                    <div class="stats-saved">
+                        <div class="stats-saved-value">
+                            <span id="stat-saved">0</span> ₽
+                        </div>
+                        <div class="stats-saved-label">💰 Сэкономлено</div>
+                    </div>
+                    <div class="stats-best-deal hidden" id="best-deal-section">
+                        <div class="stats-best-title">🏆 Лучшая находка</div>
+                        <div class="stats-best-name" id="best-deal-name"></div>
+                        <div
+                            class="stats-best-saved"
+                            id="best-deal-saved"
+                        ></div>
+                    </div>
+                </div>
+                <a
+                    href="#"
+                    id="miniapp-link"
+                    class="btn btn-secondary"
+                    target="_blank"
+                    style="margin-top: 10px; width: 100%"
+                >
+                    📱 Открыть в Telegram
+                </a>
+            </div>
+
             <div id="error-container" class="hidden">
                 <div class="error-msg" id="error-msg"></div>
             </div>
@@ -451,11 +566,7 @@
             </div>
         </div>
         <div class="footer">
-            <a
-                href="#"
-                id="dashboard-link"
-                target="_blank"
-                class="footer-link"
+            <a href="#" id="dashboard-link" target="_blank" class="footer-link"
                 >📊 Открыть дашборд</a
             >
         </div>

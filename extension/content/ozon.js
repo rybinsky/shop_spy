@@ -336,6 +336,17 @@
     SHOPSPY.isTracking = trackingStatus.tracking;
     SHOPSPY.trackingChatId = trackingStatus.chatId;
 
+    // Отправляем статистику просмотра (если пользователь залогинен в расширении)
+    await SHOPSPY.sendView(
+      PLATFORM,
+      productId,
+      name,
+      mainPrice,
+      prices.original_price,
+      prices.card_price,
+      h.analysis?.avg_price,
+    );
+
     SHOPSPY.renderPanel({
       history: h.history,
       analysis: h.analysis,

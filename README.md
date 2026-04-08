@@ -68,6 +68,24 @@ python -m backend.main
 3. Авторизуйтесь через Telegram (введите Chat ID)
 4. Нажмите "Отслеживать" для получения уведомлений о снижении цены
 
+### 7. Telegram Mini App (статистика)
+
+Mini App показывает вашу статистику (просмотры, экономия, товары, активность).
+
+- URL (раздаётся FastAPI): `http://localhost:8000/miniapp/`
+- Backend использует Telegram `user.id` и запрашивает:
+  - `GET /api/stats/summary`
+  - `GET /api/stats/products`
+  - `GET /api/stats/activity`
+
+Для локальной отладки без Telegram можно открыть:
+
+- `http://localhost:8000/miniapp/?telegram_id=123456789`
+
+Если Mini App раздаётся не с того же домена, можно переопределить API базу:
+
+- `http://localhost:8000/miniapp/?telegram_id=123&api=http://localhost:8000`
+
 ---
 
 ## 💰 Отслеживание трёх цен
@@ -292,6 +310,10 @@ Frontend рисует UI
 | `GET` | `/api/telegram/status` | Статус пользователя |
 | `GET` | `/api/stats` | Общая статистика |
 | `GET` | `/api/products` | Список товаров |
+| `POST` | `/api/stats/view` | Записать просмотр товара пользователем (extension → backend) |
+| `GET` | `/api/stats/summary?telegram_id=...` | Сводка статистики по пользователю |
+| `GET` | `/api/stats/products?telegram_id=...` | Последние просмотренные товары |
+| `GET` | `/api/stats/activity?telegram_id=...` | Активность по дням |
 
 #### Административные
 
