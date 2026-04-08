@@ -39,21 +39,35 @@
   function getCurrentPrice() {
     console.log("ShopSpy Ozon: getCurrentPrice called");
 
-    // Цена без Ozon Банка (tsHeadline500Medium — вторая строка)
-    const regularEl = document.querySelector(".tsHeadline500Medium");
-    if (regularEl) {
-      const v = parseFirstPrice(regularEl.textContent);
-      console.log("ShopSpy Ozon: regularPrice =", v);
-      if (v) return v;
+    const webPrice = document.querySelector('[data-widget="webPrice"]');
+    if (!webPrice) return null;
+
+    // Ищем строку "без Ozon Банка" и берём цену из того же контейнера
+    const allSpans = webPrice.querySelectorAll("span");
+    for (const span of allSpans) {
+      if (span.textContent.includes("без") && span.textContent.includes("Банка")) {
+        // Цена — в родительском блоке этого span, ищем ближайшее число с ₽
+        const parent = span.closest("div") || span.parentElement;
+        if (parent) {
+          const v = parseFirstPrice(parent.textContent);
+          console.log("ShopSpy Ozon: price near 'без Банка' =", v);
+          if (v) return v;
+        }
+      }
     }
 
-    // Fallback — весь webPrice виджет
-    const webPrice = document.querySelector('[data-widget="webPrice"]');
-    if (webPrice) {
-      const v = parseFirstPrice(webPrice.textContent);
-      console.log("ShopSpy Ozon: webPrice fallback =", v);
-      if (v) return v;
+    // Fallback — все цены из webPrice, берём вторую (первая = с банком)
+    const allPrices = [];
+    for (const raw of webPrice.textContent.matchAll(/(\d[\d\s\u00a0\u2009]*)\s*₽/g)) {
+      const clean = raw[1].replace(/[\s\u00a0\u2009]/g, "");
+      const v = parseFloat(clean);
+      if (v > 0 && v < 100_000_000) allPrices.push(v);
     }
+    console.log("ShopSpy Ozon: all prices in widget =", allPrices);
+
+    // Если есть 2+ цен — вторая это "без банка", если одна — берём её
+    if (allPrices.length >= 2) return allPrices[1];
+    if (allPrices.length === 1) return allPrices[0];
 
     return null;
   }
