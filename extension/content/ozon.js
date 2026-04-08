@@ -1,9 +1,23 @@
 /**
  * ShopSpy - Ozon content script
+ *
+ * Берём цену БЕЗ Ozon Банка (вторая строка в блоке цен).
  */
 (function () {
   "use strict";
   const PLATFORM = "ozon";
+
+  /**
+   * Извлекает первое число перед ₽ из строки.
+   * "26 990 ₽" → 26990,  "25 910 ₽2 699 ₽" → 25910 (первое)
+   */
+  function parseFirstPrice(text) {
+    if (!text) return null;
+    const m = text.match(/(\d[\d\s\u00a0\u2009]*)\s*₽/);
+    if (!m) return null;
+    const v = parseFloat(m[1].replace(/[\s\u00a0\u2009]/g, ""));
+    return v > 0 ? v : null;
+  }
 
   function getProductId() {
     const m = window.location.pathname.match(/\/product\/[^/]*-(\d+)\/?/);
@@ -25,76 +39,58 @@
   function getCurrentPrice() {
     console.log("ShopSpy Ozon: getCurrentPrice called");
 
-    // Сначала пробуем цену с Ozon Банком (выгоднее)
-    const bankPrice = document.querySelector(".tsHeadline600Large");
-    if (bankPrice) {
-      const v = parseFloat(bankPrice.textContent.replace(/[^\d]/g, ""));
-      console.log("ShopSpy Ozon: bankPrice =", v);
-      if (v > 0) return v;
-    }
-
-    // Потом цена без банка
-    const regularPrice = document.querySelector(
-      ".pdp_jb.tsHeadline500Medium, .tsHeadline500Medium",
-    );
-    if (regularPrice) {
-      const v = parseFloat(regularPrice.textContent.replace(/[^\d]/g, ""));
+    // Цена без Ozon Банка (tsHeadline500Medium — вторая строка)
+    const regularEl = document.querySelector(".tsHeadline500Medium");
+    if (regularEl) {
+      const v = parseFirstPrice(regularEl.textContent);
       console.log("ShopSpy Ozon: regularPrice =", v);
-      if (v > 0) return v;
+      if (v) return v;
     }
 
-    // Fallback - старые селекторы
-    for (const s of [
-      '[data-widget="webPrice"] span:first-child',
-      "span.tsHeadline500Medium",
-      'div[data-widget="webPrice"] span',
-    ]) {
-      const el = document.querySelector(s);
-      if (el) {
-        const v = parseFloat(el.textContent.replace(/[^\d]/g, ""));
-        if (v > 0) return v;
-      }
+    // Fallback — весь webPrice виджет
+    const webPrice = document.querySelector('[data-widget="webPrice"]');
+    if (webPrice) {
+      const v = parseFirstPrice(webPrice.textContent);
+      console.log("ShopSpy Ozon: webPrice fallback =", v);
+      if (v) return v;
     }
+
     return null;
   }
 
   function getOriginalPrice() {
     console.log("ShopSpy Ozon: getOriginalPrice called");
 
-    // Старая зачёркнутая цена
-    const oldPrice = document.querySelector(
-      ".pdp_bj.pdp_b0j.pdp_b9i, .pdp_b9i",
-    );
-    if (oldPrice) {
-      const v = parseFloat(oldPrice.textContent.replace(/[^\d]/g, ""));
-      console.log("ShopSpy Ozon: oldPrice =", v);
-      if (v > 0) return v;
-    }
-
-    // Fallback - старые селекторы
+    // Зачёркнутая цена (line-through)
     for (const s of [
       '[data-widget="webPrice"] span[style*="line-through"]',
       'span[style*="line-through"]',
     ]) {
       const el = document.querySelector(s);
       if (el) {
-        const v = parseFloat(el.textContent.replace(/[^\d]/g, ""));
-        if (v > 0) return v;
+        const v = parseFirstPrice(el.textContent);
+        console.log("ShopSpy Ozon: oldPrice =", v);
+        if (v) return v;
       }
     }
+
+    // Fallback — класс зачёркнутой цены
+    const oldEl = document.querySelector(".pdp_bj.pdp_b0j.pdp_b9i, .pdp_b9i");
+    if (oldEl) {
+      const v = parseFirstPrice(oldEl.textContent);
+      if (v) return v;
+    }
+
     return null;
   }
 
   function getReviews() {
     const r = [];
-    // Способ 1: находим контейнеры отзывов по data-review-uuid
     document.querySelectorAll("[data-review-uuid]").forEach((reviewEl) => {
-      // Текст отзыва - самый длинный span внутри блока с текстом
       const spans = reviewEl.querySelectorAll("span");
       let longest = "";
       spans.forEach((sp) => {
         const t = sp.textContent.trim();
-        // Отсекаем имена, даты, кнопки "Да/Нет", варианты товара
         if (
           t.length > longest.length &&
           t.length > 5 &&
@@ -109,7 +105,6 @@
       if (longest.length > 5) r.push(longest);
     });
 
-    // Способ 2: fallback по старым селекторам
     if (r.length === 0) {
       document
         .querySelectorAll(
@@ -154,7 +149,6 @@
     const h = await SHOPSPY.getHistory(PLATFORM, productId);
     console.log("ShopSpy Ozon: history =", h);
 
-    // Проверяем статус отслеживания
     const trackingStatus = await SHOPSPY.checkTracking(PLATFORM, productId);
     SHOPSPY.isTracking = trackingStatus.tracking;
     SHOPSPY.trackingChatId = trackingStatus.chatId;
