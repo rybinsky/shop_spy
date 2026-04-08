@@ -204,6 +204,17 @@ const SHOPSPY = {
     // Название карты/кошелька в зависимости от платформы
     const cardName = platform === "wb" ? "WB Кошелёк" : "Ozon Банк";
     const cardEmoji = platform === "wb" ? "💰" : "💳";
+    // Цвета для карты/кошелька (WB - светло-фиолетовый как лого, Ozon - синий)
+    const cardBadgeBg =
+      platform === "wb"
+        ? "background:linear-gradient(135deg,#a855f7,#c084fc)"
+        : "background:linear-gradient(135deg,#00f,#8b5cf6)";
+    const cardPriceColor = platform === "wb" ? "#c084fc" : "#a78bfa";
+    const cardBadgeBgRgba =
+      platform === "wb" ? "rgba(192,132,252,0.1)" : "rgba(167,139,250,0.1)";
+    const cardBadgeBorderRgba =
+      platform === "wb" ? "rgba(192,132,252,0.3)" : "rgba(167,139,250,0.3)";
+    const cardBadgeTextRgba = platform === "wb" ? "#e9d5ff" : "#c4b5fd";
     const icons = {
       good_deal: "✅",
       fake_discount: "🚨",
@@ -237,8 +248,8 @@ const SHOPSPY = {
       // Цена по карте (если есть)
       if (cardPrice && cardPrice !== price) {
         html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
-          <span style="font-size:11px;background:linear-gradient(135deg,#00f,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">${cardName}</span>
-          <span style="font-size:24px;font-weight:700;color:#a78bfa;">${cardPrice.toLocaleString("ru")} ₽</span>`;
+          <span style="font-size:11px;${cardBadgeBg};-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">${cardName}</span>
+          <span style="font-size:24px;font-weight:700;color:${cardPriceColor};">${cardPrice.toLocaleString("ru")} ₽</span>`;
         if (cardDiscount) {
           html += `<span style="font-size:12px;font-weight:600;color:#4ade80;">−${cardDiscount}%</span>`;
         }
@@ -258,8 +269,8 @@ const SHOPSPY = {
 
       // Экономия с картой
       if (cardVsRegular) {
-        html += `<div style="margin-top:8px;padding:8px 10px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:6px;">
-          <span style="font-size:12px;color:#c4b5fd;">${cardEmoji} С ${cardName.replace("Кошелёк", "кошельком").replace("Банк", "картой")} экономия ${cardVsRegular}%</span>
+        html += `<div style="margin-top:8px;padding:8px 10px;background:${cardBadgeBgRgba};border:1px solid ${cardBadgeBorderRgba};border-radius:6px;">
+          <span style="font-size:12px;color:${cardBadgeTextRgba};">${cardEmoji} С ${cardName.replace("Кошелёк", "кошельком").replace("Банк", "картой")} экономия ${cardVsRegular}%</span>
         </div>`;
       }
 
@@ -325,13 +336,13 @@ const SHOPSPY = {
               <stop offset="100%" stop-color="#e94560" stop-opacity="0"/>
             </linearGradient>
             <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+              <stop offset="0%" stop-color="${cardPriceColor}" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="${cardPriceColor}" stop-opacity="0"/>
             </linearGradient>
           </defs>
           <polygon points="0,${H} ${pts} ${W},${H}" fill="url(#sg)"/>
           <polyline points="${pts}" fill="none" stroke="#e94560" stroke-width="2"/>
-          ${cardPts ? `<polyline points="${cardPts}" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="4,2"/>` : ""}
+          ${cardPts ? `<polyline points="${cardPts}" fill="none" stroke="${cardPriceColor}" stroke-width="2" stroke-dasharray="4,2"/>` : ""}
           <!-- Линия средней цены -->
           <line x1="0" y1="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
                 x2="${W}" y2="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
@@ -346,7 +357,7 @@ const SHOPSPY = {
           cardPrices.length > 0
             ? `<div style="display:flex;gap:16px;font-size:11px;margin-top:6px;">
           <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#e94560;border-radius:1px;"></span>Обычная</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#a78bfa;border-radius:1px;border-top:1px dashed #a78bfa;"></span>${cardName}</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:${cardPriceColor};border-radius:1px;border-top:1px dashed ${cardPriceColor};"></span>${cardName}</span>
         </div>`
             : ""
         }
