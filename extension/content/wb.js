@@ -56,18 +56,19 @@
     console.log("ShopSpy WB: getAllPrices called");
 
     const result = {
-      card_price: null, // Цена с WB Кошельком
-      price: null, // Цена без WB Кошелька
-      original_price: null, // Зачёркнутая цена без скидки
+      card_price: null,
+      price: null,
+      original_price: null,
     };
 
     // ── 1. Ищем цену с WB Кошельком ──
-    // Структура: <div class="walletPriceWrap--GjYV7"><h2 class="...color_danger">19 870 ₽</h2>
+    // Состояние 1: Начальный блок (до клика)
+    // <button class="priceBlockWalletPrice--RJGuT"><h2>34 945 ₽</h2></button>
     const walletPriceSelectors = [
-      '[class*="walletPriceWrap"] h2',
-      '[class*="walletPrice"] h2.mo-typography_color_danger',
-      ".walletPriceWrap--GjYV7 h2",
-      '[class*="walletPriceWrap"] .mo-typography_color_danger',
+      ".priceBlockWalletPrice--RJGuT h2",
+      '[class*="priceBlockWalletPrice"] h2',
+      ".priceBlockPriceWrapWallet--rjb9S h2",
+      '[class*="priceBlockPriceWrapWallet"] h2',
     ];
 
     for (const selector of walletPriceSelectors) {
@@ -82,18 +83,40 @@
       }
     }
 
+    // Состояние 2: После клика (свайпер)
+    if (!result.card_price) {
+      const swiperSelectors = [
+        ".walletPriceWrap--GjYV7 h2",
+        '[class*="walletPriceWrap"] h2',
+        ".swiperPriceDetails--uqZuM .mo-typography_color_danger",
+      ];
+      for (const selector of swiperSelectors) {
+        const el = document.querySelector(selector);
+        if (el) {
+          const v = parsePrice(el.textContent);
+          if (v) {
+            result.card_price = v;
+            console.log(
+              "ShopSpy WB: card_price found via swiper",
+              selector,
+              "=",
+              v,
+            );
+            break;
+          }
+        }
+      }
+    }
+
     // Альтернативный способ: ищем по тексту "с WB Кошельком"
     if (!result.card_price) {
       const allElements = document.querySelectorAll("span, h2, h3");
       for (const el of allElements) {
         const text = el.textContent || "";
         if (text.includes("WB Кошельком") || text.includes("с кошельком")) {
-          // Цена в соседнем или родительском элементе
           const parent = el.closest('[class*="walletPrice"], [class*="slide"]');
           if (parent) {
-            const priceEl = parent.querySelector(
-              "h2, .mo-typography_variant_title2",
-            );
+            const priceEl = parent.querySelector("h2");
             if (priceEl && priceEl !== el) {
               const v = parsePrice(priceEl.textContent);
               if (v) {
@@ -111,13 +134,12 @@
     }
 
     // ── 2. Ищем цену без WB Кошелька (основная цена со скидкой) ──
-    // Структура: <div class="finalPriceWrap--tKHRP"><h2>20 485 ₽</h2>
+    // Только в состоянии 2 (после клика)
     const priceSelectors = [
-      '[class*="finalPriceWrap"] h2.mo-typography_color_primary',
-      '[class*="finalPriceWrap"] h2',
       ".finalPriceWrap--tKHRP h2",
-      '[class*="finalPriceBlock"] h2',
+      '[class*="finalPriceWrap"] h2',
       ".finalPriceBlock--WasTo h2",
+      '[class*="finalPriceBlock"] h2.mo-typography_color_primary',
     ];
 
     for (const selector of priceSelectors) {
@@ -138,12 +160,9 @@
       for (const el of allElements) {
         const text = el.textContent || "";
         if (text.includes("без") && text.includes("Кошелька")) {
-          // Цена в соседнем или родительском элементе
           const parent = el.closest('[class*="finalPrice"], [class*="slide"]');
           if (parent) {
-            const priceEl = parent.querySelector(
-              "h2, .mo-typography_variant_title2",
-            );
+            const priceEl = parent.querySelector("h2");
             if (priceEl && priceEl !== el) {
               const v = parsePrice(priceEl.textContent);
               if (v) {
@@ -163,7 +182,6 @@
         "ins.priceBlockFinalPrice--iToZR",
         ".priceBlockFinalPrice--iToZR",
         ".price-block__final-price",
-        "span.price-block__final-price",
         "[class*='final-price']",
         "[class*='FinalPrice']",
       ]) {
@@ -180,12 +198,12 @@
     }
 
     // ── 3. Ищем зачёркнутую цену (original_price) ──
-    // Структура: <span class="mo-typography_variant_body-strikethrough">33 321 ₽</span>
+    // Состояние 1: Начальный блок
+    // <span class="priceBlockOldPrice--qSWAf">48 100 ₽</span>
     const originalPriceSelectors = [
-      ".mo-typography_variant_body-strikethrough",
-      '[class*="finalPriceBlock"] .mo-typography_variant_body-strikethrough',
-      ".finalPriceBlock--WasTo .mo-typography_variant_body-strikethrough",
-      '[class*="strikethrough"]',
+      ".priceBlockOldPrice--qSWAf",
+      '[class*="priceBlockOldPrice"]',
+      ".priceBlockPriceWrap--G4F0p .mo-typography_variant_body-strikethrough",
     ];
 
     for (const selector of originalPriceSelectors) {
@@ -200,15 +218,36 @@
       }
     }
 
-    // Альтернативный способ: ищем через зачёркнутый текст или старые селекторы
+    // Состояние 2: После клика (свайпер)
+    if (!result.original_price) {
+      const swiperOldPriceSelectors = [
+        ".finalPriceBlock--WasTo .mo-typography_variant_body-strikethrough",
+        '[class*="finalPriceBlock"] .mo-typography_variant_body-strikethrough',
+        ".finalPriceWrap--tKHRP .mo-typography_variant_body-strikethrough",
+      ];
+      for (const selector of swiperOldPriceSelectors) {
+        const el = document.querySelector(selector);
+        if (el) {
+          const v = parsePrice(el.textContent);
+          if (v) {
+            result.original_price = v;
+            console.log(
+              "ShopSpy WB: original_price found via swiper",
+              selector,
+              "=",
+              v,
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    // Альтернативный способ: ищем через зачёркнутый текст
     if (!result.original_price) {
       for (const s of [
-        "span.priceBlockOldPrice--qSWAf",
-        ".priceBlockOldPrice--qSWAf",
-        ".price-block__old-price del",
-        ".price-block__old-price",
-        "del.price",
-        "s.price",
+        ".mo-typography_variant_body-strikethrough",
+        "[class*='strikethrough']",
         "[class*='old-price']",
         "[class*='oldPrice']",
         "s",
@@ -233,20 +272,19 @@
       result.original_price,
     ].filter((p) => p !== null);
 
-    if (foundPrices.length === 1 && !result.price) {
-      // Если нашли только одну цену - это основная
-      result.price = foundPrices[0];
-      result.card_price = null;
-      result.original_price = null;
-    } else if (foundPrices.length === 2) {
-      // Если две цены - меньшая это card_price, большая это price или original_price
-      const sorted = foundPrices.sort((a, b) => a - b);
-      if (!result.card_price && !result.price) {
-        result.card_price = sorted[0];
-        result.price = sorted[1];
-      } else if (!result.price && !result.original_price) {
-        result.price = sorted[0];
-        result.original_price = sorted[1];
+    // Если цена без кошелька не найдена, но есть цена с кошельком и зачёркнутая
+    // Попробуем кликнуть на цену кошелька чтобы раскрыть все цены
+    if (!result.price && result.card_price && result.original_price) {
+      console.log(
+        "ShopSpy WB: price not found, trying to click wallet price button...",
+      );
+
+      const walletBtn = document.querySelector(
+        ".priceBlockWalletPrice--RJGuT, [class*='priceBlockWalletPrice']",
+      );
+      if (walletBtn) {
+        walletBtn.click();
+        console.log("ShopSpy WB: clicked wallet price button");
       }
     }
 
@@ -270,6 +308,29 @@
 
     console.log("ShopSpy WB: final prices =", result);
     return result;
+  }
+
+  /**
+   * Пытается раскрыть блок цен кликом и ждёт обновления DOM
+   */
+  async function expandPriceBlock() {
+    const walletBtn = document.querySelector(
+      ".priceBlockWalletPrice--RJGuT, [class*='priceBlockWalletPrice']",
+    );
+    if (walletBtn) {
+      // Проверяем, раскрыт ли уже блок
+      const expandedBlock = document.querySelector(
+        ".swiperPriceDetails--uqZuM, [class*='finalPriceWrap']",
+      );
+      if (!expandedBlock) {
+        console.log("ShopSpy WB: clicking to expand price block");
+        walletBtn.click();
+        // Ждём обновления DOM
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -321,6 +382,12 @@
     }
 
     SHOPSPY.createPanel();
+
+    // Сначала пытаемся раскрыть блок цен
+    await expandPriceBlock();
+
+    // Небольшая задержка после клика
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     const prices = getAllPrices();
     const name = getProductName();
