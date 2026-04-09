@@ -242,7 +242,8 @@ class RateLimitConfig:
 
     @property
     def global_limit(self) -> int:
-        return cfg.rate_limit.global_limit
+        # config.yaml stores this key as `global`
+        return cfg.rate_limit["global"]
 
 
 class PriceAnalysisConfig:
