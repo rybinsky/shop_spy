@@ -20,14 +20,36 @@ class AIAnalyzer:
     """Service for AI-powered review analysis."""
 
     def __init__(self):
-        """Initialize AI analyzer with configuration."""
-        self.gemini_api_key = config.ai.gemini_api_key
-        self.claude_api_key = config.ai.claude_api_key
-        self.gemini_model = config.ai.gemini_model
-        self.gemini_max_tokens = config.ai.gemini_max_tokens
-        self.gemini_temperature = config.ai.gemini_temperature
-        self.claude_model = config.ai.claude_model
-        self.claude_max_tokens = config.ai.claude_max_tokens
+        """Initialize AI analyzer with configuration from config.yaml."""
+        pass
+
+    @property
+    def gemini_api_key(self) -> Optional[str]:
+        return config.ai.gemini_api_key
+
+    @property
+    def claude_api_key(self) -> Optional[str]:
+        return config.ai.claude_api_key
+
+    @property
+    def gemini_model(self) -> str:
+        return config.ai.gemini_model
+
+    @property
+    def gemini_max_tokens(self) -> int:
+        return config.ai.gemini_max_tokens
+
+    @property
+    def gemini_temperature(self) -> float:
+        return config.ai.gemini_temperature
+
+    @property
+    def claude_model(self) -> str:
+        return config.ai.claude_model
+
+    @property
+    def claude_max_tokens(self) -> int:
+        return config.ai.claude_max_tokens
 
     @property
     def available(self) -> bool:

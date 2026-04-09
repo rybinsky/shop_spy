@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
+from backend.config import config
 from backend.db.database import Database
 
 logger = logging.getLogger(__name__)
@@ -62,10 +63,12 @@ class PricesRepository:
 
             old_price = last["price"] if last else None
 
-            # Skip if same price recorded recently (within 6 hours)
-            if last and abs(last["price"] - price) < 0.01:
+            # Skip if same price recorded recently
+            if last and abs(last["price"] - price) < config.prices.equality_threshold:
                 last_dt = datetime.fromisoformat(last["recorded_at"])
-                if datetime.now() - last_dt < timedelta(hours=6):
+                if datetime.now() - last_dt < timedelta(
+                    hours=config.prices.min_record_interval_hours
+                ):
                     logger.debug(
                         f"Skipping duplicate price for {platform}:{product_id}"
                     )

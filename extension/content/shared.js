@@ -42,7 +42,15 @@ const SHOPSPY = {
    * - не падает если пользователь не авторизован (telegram_id отсутствует)
    * - анти-спам: не чаще 1 раза на товар за 30 минут
    */
-  async sendView(platform, productId, productName, price, originalPrice, cardPrice, avgPrice) {
+  async sendView(
+    platform,
+    productId,
+    productName,
+    price,
+    originalPrice,
+    cardPrice,
+    avgPrice,
+  ) {
     const telegramId = await this.getTelegramId();
     if (!telegramId) return;
 
@@ -71,7 +79,10 @@ const SHOPSPY = {
       localStorage.setItem(key, String(Date.now()));
     } catch (e) {
       // не шумим, чтобы не мешать пользователю
-      console.log("ShopSpy: не удалось отправить статистику просмотра", e.message);
+      console.log(
+        "ShopSpy: не удалось отправить статистику просмотра",
+        e.message,
+      );
     }
   },
 
@@ -80,13 +91,30 @@ const SHOPSPY = {
       const r = await fetch(
         `${this.API_BASE}/api/price/history?platform=${platform}&product_id=${productId}`,
       );
+
+      if (!r.ok) {
+        const errorMsg =
+          r.status === 429
+            ? "Превышен лимит запросов. Попробуйте позже."
+            : r.status >= 500
+              ? "Ошибка сервера. Попробуйте позже."
+              : `Ошибка: ${r.status}`;
+        return {
+          history: [],
+          analysis: {
+            verdict: "error",
+            message: errorMsg,
+          },
+        };
+      }
+
       return await r.json();
     } catch (e) {
       return {
         history: [],
         analysis: {
           verdict: "error",
-          message: "Сервер недоступен. Попробуйте позже.",
+          message: "Сервер недоступен. Проверьте подключение.",
         },
       };
     }
@@ -104,13 +132,33 @@ const SHOPSPY = {
           reviews,
         }),
       });
+
+      if (!r.ok) {
+        const errorMsg =
+          r.status === 429
+            ? "Превышен лимит AI-запросов. Попробуйте завтра."
+            : r.status >= 500
+              ? "Ошибка сервера. Попробуйте позже."
+              : `Ошибка: ${r.status}`;
+        return {
+          summary: {
+            pros: [],
+            cons: [],
+            fake_reviews_detected: false,
+            verdict: errorMsg,
+            buy_recommendation: "unknown",
+          },
+        };
+      }
+
       return await r.json();
     } catch (e) {
       return {
         summary: {
           pros: [],
           cons: [],
-          verdict: "Сервер недоступен",
+          fake_reviews_detected: false,
+          verdict: "Сервер недоступен. Проверьте подключение.",
           buy_recommendation: "unknown",
         },
       };

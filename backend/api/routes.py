@@ -8,12 +8,18 @@ import hashlib
 import hmac
 import json
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from backend.config import config
-from backend.db import AlertsRepository, PricesRepository, UsersRepository, get_database
-from backend.db.repositories.user_stats import UserStatsRepository
+from backend.db import (
+    AlertsRepository,
+    PricesRepository,
+    UsersRepository,
+    UserStatsRepository,
+    get_database,
+)
 from backend.models.schemas import (
     AuthResponse,
     BestDeal,
@@ -88,6 +94,33 @@ def get_user_stats_repo() -> UserStatsRepository:
     return UserStatsRepository(get_database())
 
 
+def verify_admin_secret(x_admin_secret: Optional[str] = Header(None)) -> None:
+    """
+    Verify admin secret for protected endpoints.
+
+    If ADMIN_SECRET is configured, requires X-Admin-Secret header.
+    If not configured, allows access (development mode).
+
+    Raises:
+        HTTPException: If secret is required but not provided or invalid
+    """
+    if not config.admin.is_protected:
+        # No secret configured - allow access (development mode)
+        return
+
+    if not x_admin_secret:
+        raise HTTPException(
+            status_code=401,
+            detail="X-Admin-Secret header required",
+        )
+
+    if x_admin_secret != config.admin.secret:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid admin secret",
+        )
+
+
 def check_rate_limit(request: Request) -> None:
     """
     Check rate limiting for AI requests.
@@ -108,7 +141,7 @@ def check_rate_limit(request: Request) -> None:
         _global_rate["count"] = 0
         _global_rate["date"] = today
 
-    if _global_rate["count"] >= config.ai.rate_limit_global:
+    if _global_rate["count"] >= config.rate_limit.global_limit:
         raise HTTPException(
             status_code=429,
             detail="Глобальный дневной лимит AI-запросов исчерпан. Попробуйте завтра.",
@@ -120,10 +153,10 @@ def check_rate_limit(request: Request) -> None:
         _rate_data[ip] = {"count": 0, "date": today}
         entry = _rate_data[ip]
 
-    if entry["count"] >= config.ai.rate_limit_per_ip:
+    if entry["count"] >= config.rate_limit.per_ip:
         raise HTTPException(
             status_code=429,
-            detail=f"Лимит {config.ai.rate_limit_per_ip} AI-запросов в день с вашего IP исчерпан.",
+            detail=f"Лимит {config.rate_limit.per_ip} AI-запросов в день с вашего IP исчерпан.",
         )
 
     entry["count"] += 1
@@ -201,7 +234,11 @@ def record_price(
 def get_price_history(
     platform: str,
     product_id: str,
-    limit: int = Query(default=30, ge=1, le=100),
+    limit: int = Query(
+        default=config.api.history_limit_default,
+        ge=1,
+        le=config.api.history_limit_max,
+    ),
     prices: PricesRepository = Depends(get_prices_repo),
 ):
     """Get price history for a product."""
@@ -406,8 +443,22 @@ def get_current_user(
 def create_alert(
     data: PriceAlertCreate,
     alerts: AlertsRepository = Depends(get_alerts_repo),
+    users: UsersRepository = Depends(get_users_repo),
 ):
     """Create a price alert."""
+    # Проверяем, что пользователь существует и активен
+    if not users.user_exists(data.chat_id):
+        raise HTTPException(
+            status_code=404,
+            detail="Пользователь не найден. Сначала отправьте /start боту в Telegram.",
+        )
+
+    if not users.is_active(data.chat_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Пользователь деактивирован. Отправьте /start боту для реактивации.",
+        )
+
     success = alerts.create_alert(
         chat_id=data.chat_id,
         platform=data.platform,
@@ -474,7 +525,11 @@ def get_stats(
 
 @api_router.get("/products", response_model=ProductListResponse)
 def get_products(
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(
+        default=config.api.products_limit_default,
+        ge=1,
+        le=config.api.products_limit_max,
+    ),
     prices: PricesRepository = Depends(get_prices_repo),
 ):
     """Get list of tracked products."""
@@ -505,6 +560,7 @@ def health_check():
 @api_router.get("/admin/users")
 def admin_get_users(
     users: UsersRepository = Depends(get_users_repo),
+    _: None = Depends(verify_admin_secret),
 ):
     """Get all registered users (admin)."""
     all_users = users.get_all_users()
@@ -514,6 +570,7 @@ def admin_get_users(
 @api_router.get("/admin/alerts")
 def admin_get_all_alerts(
     alerts: AlertsRepository = Depends(get_alerts_repo),
+    _: None = Depends(verify_admin_secret),
 ):
     """Get all alerts (admin)."""
     all_alerts = alerts.get_all_alerts()
@@ -525,13 +582,14 @@ def admin_get_detailed_stats(
     prices: PricesRepository = Depends(get_prices_repo),
     users: UsersRepository = Depends(get_users_repo),
     alerts: AlertsRepository = Depends(get_alerts_repo),
+    _: None = Depends(verify_admin_secret),
 ):
     """Get detailed statistics (admin)."""
     price_stats = prices.get_stats()
 
     # Recent activity
-    recent_prices = prices.get_recent_prices(20)
-    recent_alerts = alerts.get_recent_alerts(20)
+    recent_prices = prices.get_recent_prices(config.api.recent_items_limit)
+    recent_alerts = alerts.get_recent_alerts(config.api.recent_items_limit)
 
     return {
         "overview": {
