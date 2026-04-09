@@ -4,6 +4,7 @@ ShopSpy - Telegram Bot Module
 Handles Telegram bot for price drop notifications.
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -54,23 +55,53 @@ class TelegramBot:
             logger.error("Telegram bot token is None")
             return
 
-        try:
-            self.bot = Bot(token=self.token)
-            self.dp = Dispatcher()
-            self.init_repos()
+        retry_delay_seconds = 10
 
-            # Register handlers
-            self._register_handlers()
+        while True:
+            try:
+                self.bot = Bot(token=self.token)
+                self.dp = Dispatcher()
+                self.init_repos()
 
-            logger.info("Starting Telegram bot polling...")
-            await self.dp.start_polling(
-                self.bot,
-                allowed_updates=["message", "callback_query"],
-                drop_pending_updates=True,
-            )
+                # Register handlers
+                self._register_handlers()
 
-        except Exception as e:
-            logger.error(f"Failed to start Telegram bot: {e}")
+                logger.info("Starting Telegram bot polling...")
+                await self.dp.start_polling(
+                    self.bot,
+                    allowed_updates=["message", "callback_query"],
+                    drop_pending_updates=True,
+                )
+                return
+
+            except Exception as e:
+                error_message = str(e)
+                is_temporary_network_error = (
+                    "Cannot connect to host" in error_message
+                    or "name resolution" in error_message
+                    or "Temporary failure in name resolution" in error_message
+                )
+                is_unauthorized_error = "Unauthorized" in error_message
+
+                if is_unauthorized_error:
+                    logger.error(
+                        "Failed to start Telegram bot: invalid TELEGRAM_BOT_TOKEN or revoked token. Error: %s",
+                        e,
+                    )
+                    return
+
+                if is_temporary_network_error:
+                    logger.warning(
+                        "Temporary network error while starting Telegram bot. "
+                        "Retrying in %s seconds. Error: %s",
+                        retry_delay_seconds,
+                        e,
+                    )
+                    await asyncio.sleep(retry_delay_seconds)
+                    continue
+
+                logger.error(f"Failed to start Telegram bot: {e}")
+                return
 
     def _get_main_keyboard(self) -> ReplyKeyboardMarkup:
         """Get main menu keyboard."""
