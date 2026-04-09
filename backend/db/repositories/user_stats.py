@@ -92,6 +92,34 @@ class UserStatsRepository:
         saved_amount = self._calculate_saved_amount(avg_price, price)
 
         with self.db.get_connection() as conn:
+            conn.execute(
+                """INSERT INTO user_product_state (
+                       telegram_id, platform, product_id, product_name,
+                       current_price, current_card_price, current_original_price,
+                       avg_price, saved_amount, last_view_at, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                   ON CONFLICT(telegram_id, platform, product_id) DO UPDATE SET
+                       product_name = excluded.product_name,
+                       current_price = excluded.current_price,
+                       current_card_price = excluded.current_card_price,
+                       current_original_price = excluded.current_original_price,
+                       avg_price = excluded.avg_price,
+                       saved_amount = excluded.saved_amount,
+                       last_view_at = CURRENT_TIMESTAMP,
+                       updated_at = CURRENT_TIMESTAMP""",
+                (
+                    telegram_id,
+                    platform,
+                    product_id,
+                    product_name,
+                    price,
+                    card_price,
+                    original_price,
+                    avg_price,
+                    saved_amount,
+                ),
+            )
+
             recent = conn.execute(
                 """SELECT id FROM user_stats
                    WHERE telegram_id = ? AND platform = ? AND product_id = ?
@@ -106,7 +134,7 @@ class UserStatsRepository:
 
             if recent:
                 logger.debug(
-                    f"Skipping duplicate view for {telegram_id}:{platform}:{product_id}"
+                    f"Skipping duplicate view log for {telegram_id}:{platform}:{product_id}"
                 )
                 return
 
@@ -206,6 +234,38 @@ class UserStatsRepository:
                 ),
             )
 
+            conn.execute(
+                """INSERT INTO user_product_state (
+                       telegram_id, platform, product_id, product_name,
+                       current_price, current_card_price, current_original_price,
+                       avg_price, saved_amount, purchase_price, purchased_at,
+                       updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                   ON CONFLICT(telegram_id, platform, product_id) DO UPDATE SET
+                       product_name = excluded.product_name,
+                       current_price = excluded.current_price,
+                       current_card_price = excluded.current_card_price,
+                       current_original_price = excluded.current_original_price,
+                       avg_price = excluded.avg_price,
+                       saved_amount = excluded.saved_amount,
+                       purchase_price = excluded.purchase_price,
+                       purchased_at = excluded.purchased_at,
+                       updated_at = CURRENT_TIMESTAMP""",
+                (
+                    telegram_id,
+                    platform,
+                    product_id,
+                    product_name,
+                    current_price,
+                    card_price,
+                    original_price,
+                    avg_price,
+                    self._calculate_saved_amount(avg_price, current_price),
+                    purchase_price,
+                    purchased_at,
+                ),
+            )
+
         logger.info(
             "Recorded purchase for user %s: %s:%s at %.2f",
             telegram_id,
@@ -300,6 +360,9 @@ class UserStatsRepository:
         """
         Get list of products viewed by user.
 
+        Reads from a denormalized current-state table so Mini App can load fast
+        without rebuilding the latest state from logs on every request.
+
         Args:
             telegram_id: Telegram user ID
             limit: Maximum number of products to return
@@ -309,44 +372,22 @@ class UserStatsRepository:
         """
         with self.db.get_connection() as conn:
             rows = conn.execute(
-                """WITH latest_views AS (
-                       SELECT us.platform,
-                              us.product_id,
-                              us.product_name,
-                              us.price,
-                              us.card_price,
-                              us.avg_price,
-                              us.original_price,
-                              us.saved_amount,
-                              us.created_at AS last_view
-                       FROM user_stats us
-                       INNER JOIN (
-                           SELECT platform, product_id, MAX(id) AS latest_id
-                           FROM user_stats
-                           WHERE telegram_id = ? AND action = ?
-                           GROUP BY platform, product_id
-                       ) latest ON latest.latest_id = us.id
-                       WHERE us.telegram_id = ?
-                   )
-                   SELECT lv.platform,
-                          lv.product_id,
-                          lv.product_name,
-                          lv.price,
-                          lv.card_price,
-                          lv.avg_price,
-                          lv.original_price,
-                          lv.saved_amount,
-                          lv.last_view,
-                          up.purchase_price,
-                          up.purchased_at
-                   FROM latest_views lv
-                   LEFT JOIN user_purchases up
-                          ON up.telegram_id = ?
-                         AND up.platform = lv.platform
-                         AND up.product_id = lv.product_id
-                   ORDER BY datetime(lv.last_view) DESC
+                """SELECT platform,
+                          product_id,
+                          product_name,
+                          current_price AS price,
+                          current_card_price AS card_price,
+                          avg_price,
+                          current_original_price AS original_price,
+                          saved_amount,
+                          last_view_at AS last_view,
+                          purchase_price,
+                          purchased_at
+                   FROM user_product_state
+                   WHERE telegram_id = ?
+                   ORDER BY datetime(last_view_at) DESC, datetime(updated_at) DESC
                    LIMIT ?""",
-                (telegram_id, self.VIEW_ACTION, telegram_id, telegram_id, limit),
+                (telegram_id, limit),
             ).fetchall()
 
             return [dict(row) for row in rows]

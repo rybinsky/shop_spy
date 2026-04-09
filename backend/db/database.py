@@ -221,6 +221,30 @@ class Database:
 
             CREATE INDEX IF NOT EXISTS idx_user_purchases_product
             ON user_purchases(telegram_id, platform, product_id);
+
+            -- Current user product state for fast Mini App reads
+            CREATE TABLE IF NOT EXISTS user_product_state (
+                telegram_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                product_name TEXT,
+                current_price REAL,
+                current_card_price REAL,
+                current_original_price REAL,
+                avg_price REAL,
+                saved_amount REAL DEFAULT 0,
+                last_view_at TIMESTAMP,
+                purchase_price REAL,
+                purchased_at TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (telegram_id, platform, product_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_user_product_state_telegram
+            ON user_product_state(telegram_id, last_view_at);
+
+            CREATE INDEX IF NOT EXISTS idx_user_product_state_product
+            ON user_product_state(platform, product_id);
         """
         )
         # Migration: Add card_price column if it doesn't exist

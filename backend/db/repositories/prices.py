@@ -90,6 +90,30 @@ class PricesRepository:
                 ),
             )
 
+            conn.execute(
+                """UPDATE user_product_state
+                   SET product_name = COALESCE(?, product_name),
+                       current_price = ?,
+                       current_card_price = ?,
+                       current_original_price = ?,
+                       saved_amount = CASE
+                           WHEN avg_price IS NOT NULL AND avg_price > ? THEN ROUND(avg_price - ?, 2)
+                           ELSE 0
+                       END,
+                       updated_at = CURRENT_TIMESTAMP
+                   WHERE platform = ? AND product_id = ?""",
+                (
+                    product_name,
+                    price,
+                    card_price,
+                    original_price,
+                    price,
+                    price,
+                    platform,
+                    product_id,
+                ),
+            )
+
             logger.info(
                 f"Recorded price for {platform}:{product_id}: {price} ₽"
                 + (f" (was {old_price} ₽)" if old_price else "")
