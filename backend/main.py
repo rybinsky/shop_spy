@@ -16,7 +16,12 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.api import router
 from backend.config import config
-from backend.db import init_database
+from backend.db import (
+    PricesRepository,
+    UserStatsRepository,
+    get_database,
+    init_database,
+)
 from backend.telegram_bot import telegram_bot
 from backend.utils.logging import setup_logging
 
@@ -28,6 +33,32 @@ setup_logging(level=log_level, json_format=json_format)
 logger = logging.getLogger(__name__)
 
 
+async def _periodic_cleanup():
+    """
+    Periodic cleanup task that runs once per day.
+    Removes old price records and user statistics.
+    """
+    while True:
+        # Wait first to avoid cleanup on startup
+        await asyncio.sleep(config.cleanup.interval_hours * 3600)
+
+        try:
+            db = get_database()
+            prices_repo = PricesRepository(db)
+            user_stats_repo = UserStatsRepository(db)
+
+            deleted_prices = prices_repo.cleanup_old_records(config.cleanup.keep_days)
+            deleted_stats = user_stats_repo.cleanup_old_stats(config.cleanup.keep_days)
+
+            if deleted_prices > 0 or deleted_stats > 0:
+                logger.info(
+                    f"Cleanup completed: removed {deleted_prices} price records, "
+                    f"{deleted_stats} user stats records"
+                )
+        except Exception as e:
+            logger.error(f"Cleanup task failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -37,7 +68,7 @@ async def lifespan(app: FastAPI):
     # === STARTUP ===
     logger.info("=" * 50)
     logger.info("ShopSpy starting up...")
-    logger.info(f"Environment: {config.env.value}")
+    logger.info(f"Environment: {config.env}")
     logger.info(f"Database: {config.database.full_path}")
     logger.info(f"Telegram bot: {'enabled' if config.telegram.enabled else 'disabled'}")
     logger.info(f"AI provider: {config.ai.available_provider or 'not configured'}")
@@ -51,6 +82,10 @@ async def lifespan(app: FastAPI):
     if config.telegram.enabled:
         asyncio.create_task(telegram_bot.start())
         logger.info("Telegram bot started")
+
+    # Start periodic cleanup task
+    asyncio.create_task(_periodic_cleanup())
+    logger.info("Periodic cleanup task started")
 
     yield
 
@@ -82,7 +117,9 @@ app.include_router(router, prefix="/api")
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 _miniapp_dir = os.path.join(_static_dir, "miniapp")
 if os.path.isdir(_miniapp_dir):
-    app.mount("/miniapp", StaticFiles(directory=_miniapp_dir, html=True), name="miniapp")
+    app.mount(
+        "/miniapp", StaticFiles(directory=_miniapp_dir, html=True), name="miniapp"
+    )
 
 
 # Index page route
@@ -130,7 +167,7 @@ async def health():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "environment": config.env.value,
+        "environment": config.env,
         "telegram_enabled": config.telegram.enabled,
         "ai_provider": config.ai.available_provider,
     }

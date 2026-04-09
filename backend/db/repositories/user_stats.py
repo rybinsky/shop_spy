@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from backend.config import config
 from backend.db.database import Database
 
 logger = logging.getLogger(__name__)
@@ -94,8 +95,13 @@ class UserStatsRepository:
             recent = conn.execute(
                 """SELECT id FROM user_stats
                    WHERE telegram_id = ? AND platform = ? AND product_id = ?
-                   AND created_at > datetime('now', '-1 day')""",
-                (telegram_id, platform, product_id),
+                   AND created_at > datetime('now', ?)""",
+                (
+                    telegram_id,
+                    platform,
+                    product_id,
+                    f"-{config.user_stats.view_dedup_days} day",
+                ),
             ).fetchone()
 
             if recent:
