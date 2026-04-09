@@ -298,6 +298,9 @@ def init_database(db_path: str) -> Database:
     """
     Initialize the global database instance.
 
+    For the current SQLite-based deployment flow we recreate the database file
+    on every application start so each deploy starts from a clean state.
+
     Args:
         db_path: Path to SQLite database file
 
@@ -305,6 +308,11 @@ def init_database(db_path: str) -> Database:
         Database instance
     """
     global _db
+
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        logger.warning("Existing SQLite database removed on startup: %s", db_path)
+
     _db = Database(db_path)
     _db.init_tables()
     logger.info(f"Database initialized at: {db_path}")
