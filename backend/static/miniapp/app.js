@@ -56,7 +56,8 @@
   function formatDateForInput(value) {
     if (!value) return new Date().toISOString().slice(0, 10);
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+    if (Number.isNaN(date.getTime()))
+      return new Date().toISOString().slice(0, 10);
     return date.toISOString().slice(0, 10);
   }
 
@@ -64,6 +65,16 @@
     if (platform === "wb") return { text: "WB", cls: "wb" };
     if (platform === "ozon") return { text: "Ozon", cls: "ozon" };
     return { text: platform || "?", cls: "" };
+  }
+
+  function getProductUrl(platform, productId) {
+    if (platform === "wb") {
+      return `https://www.wildberries.ru/catalog/${productId}/detail.aspx`;
+    }
+    if (platform === "ozon") {
+      return `https://www.ozon.ru/product/${productId}/`;
+    }
+    return null;
   }
 
   function getQueryParam(name) {
@@ -135,7 +146,10 @@
   function buildOverview() {
     const summary = state.summary || {};
     const best = summary.best_deal;
-    const recentProducts = state.products.slice(0, 3).map(buildProductCard).join("");
+    const recentProducts = state.products
+      .slice(0, 3)
+      .map(buildProductCard)
+      .join("");
 
     return `
       <section class="hero">
@@ -188,7 +202,9 @@
         <button class="quick-btn" data-view-jump="activity">📈 Активность</button>
       </div>
 
-      ${best ? `
+      ${
+        best
+          ? `
         <section class="panel">
           <div class="section-title">Лучшая находка</div>
           <div class="best-card">
@@ -196,7 +212,9 @@
             <div class="best-meta">${platformLabel(best.platform).text} · Экономия ${formatMoney(best.saved_amount)}</div>
           </div>
         </section>
-      ` : ""}
+      `
+          : ""
+      }
 
       <section class="panel">
         <div class="section-head">
@@ -211,6 +229,7 @@
   function buildProductCard(product) {
     const pl = platformLabel(product.platform);
     const title = escapeHtml(product.product_name || product.product_id);
+    const productUrl = getProductUrl(product.platform, product.product_id);
     const purchaseInfo = product.purchase_price
       ? `
         <div class="purchase-banner">
@@ -221,7 +240,7 @@
       : "";
 
     return `
-      <article class="product-card">
+      <article class="product-card${productUrl ? " clickable" : ""}" ${productUrl ? `data-action="open" data-url="${productUrl}"` : ""}>
         <div class="product-head">
           <div class="product-name">${title}</div>
           <div class="pill ${pl.cls}">${pl.text}</div>
@@ -299,8 +318,11 @@
       <section class="panel">
         <div class="section-title">Активность</div>
         <div class="stack">
-          ${rows.length
-            ? rows.map((row) => `
+          ${
+            rows.length
+              ? rows
+                  .map(
+                    (row) => `
                 <article class="activity-card">
                   <div class="product-head">
                     <div class="product-name">${escapeHtml(row.date)}</div>
@@ -310,8 +332,10 @@
                     <span>Экономия <b class="money-positive">${formatMoney(row.saved)}</b></span>
                   </div>
                 </article>
-              `).join("")
-            : `<div class="empty-state">Активности пока нет.</div>`
+              `,
+                  )
+                  .join("")
+              : `<div class="empty-state">Активности пока нет.</div>`
           }
         </div>
       </section>
@@ -320,16 +344,23 @@
 
   /* ── Rendering ── */
 
-  const viewBuilders = [buildOverview, buildProducts, buildPurchases, buildActivity];
+  const viewBuilders = [
+    buildOverview,
+    buildProducts,
+    buildPurchases,
+    buildActivity,
+  ];
 
   function renderRoot() {
     $("subtitle").textContent = `Telegram ID: ${state.telegramId}`;
     $("bottom-nav").style.display = "";
 
     // Build all 4 pages for swipe
-    const pages = viewBuilders.map((builder, i) => {
-      return `<div class="swipe-page" data-page="${i}"><div class="view-content">${builder()}</div></div>`;
-    }).join("");
+    const pages = viewBuilders
+      .map((builder, i) => {
+        return `<div class="swipe-page" data-page="${i}"><div class="view-content">${builder()}</div></div>`;
+      })
+      .join("");
 
     $("root").innerHTML = `
       <div class="swipe-container" id="swipe-container">
@@ -376,7 +407,9 @@
     updateSwipePosition(true);
     updateBottomNav();
     // Прокрутка активной страницы в начало
-    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
+    const activePage = document.querySelector(
+      `.swipe-page[data-page="${idx}"]`,
+    );
     if (activePage) activePage.scrollTop = 0;
   }
 
@@ -385,7 +418,9 @@
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
+    const activePage = document.querySelector(
+      `.swipe-page[data-page="${idx}"]`,
+    );
     if (activePage) activePage.scrollTop = 0;
   }
 
@@ -402,68 +437,85 @@
     let isHorizontal = null;
     const threshold = 50;
 
-    container.addEventListener("touchstart", (e) => {
-      if ($("purchase-modal").classList.contains("open")) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      currentX = startX;
-      isDragging = true;
-      isHorizontal = null;
-    }, { passive: true });
+    container.addEventListener(
+      "touchstart",
+      (e) => {
+        if ($("purchase-modal").classList.contains("open")) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        currentX = startX;
+        isDragging = true;
+        isHorizontal = null;
+      },
+      { passive: true },
+    );
 
-    container.addEventListener("touchmove", (e) => {
-      if (!isDragging) return;
-      currentX = e.touches[0].clientX;
-      const diffX = currentX - startX;
-      const diffY = e.touches[0].clientY - startY;
+    container.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!isDragging) return;
+        currentX = e.touches[0].clientX;
+        const diffX = currentX - startX;
+        const diffY = e.touches[0].clientY - startY;
 
-      if (isHorizontal === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
-        isHorizontal = Math.abs(diffX) > Math.abs(diffY);
-      }
-
-      if (!isHorizontal) return;
-
-      // Запрещаем браузерную прокрутку только при горизонтальном свайпе
-      e.preventDefault();
-
-      const track = $("swipe-track");
-      if (state.activeViewIndex === 0 && diffX > 0) return;
-      if (state.activeViewIndex === VIEWS.length - 1 && diffX < 0) return;
-
-      track.classList.add("swiping");
-      const baseOffset = -state.activeViewIndex * 100;
-      const dragPercent = (diffX / container.offsetWidth) * 100;
-      track.style.transform = `translateX(${baseOffset + dragPercent}%)`;
-    }, { passive: false });
-
-    container.addEventListener("touchend", () => {
-      if (!isDragging) return;
-      isDragging = false;
-
-      if (!isHorizontal) return;
-
-      const diffX = currentX - startX;
-      const track = $("swipe-track");
-      track.classList.remove("swiping");
-
-      if (Math.abs(diffX) > threshold) {
-        if (diffX < 0 && state.activeViewIndex < VIEWS.length - 1) {
-          state.activeViewIndex++;
-        } else if (diffX > 0 && state.activeViewIndex > 0) {
-          state.activeViewIndex--;
+        if (
+          isHorizontal === null &&
+          (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)
+        ) {
+          isHorizontal = Math.abs(diffX) > Math.abs(diffY);
         }
-      }
 
-      updateSwipePosition(true);
-      updateBottomNav();
-    }, { passive: true });
+        if (!isHorizontal) return;
+
+        // Запрещаем браузерную прокрутку только при горизонтальном свайпе
+        e.preventDefault();
+
+        const track = $("swipe-track");
+        if (state.activeViewIndex === 0 && diffX > 0) return;
+        if (state.activeViewIndex === VIEWS.length - 1 && diffX < 0) return;
+
+        track.classList.add("swiping");
+        const baseOffset = -state.activeViewIndex * 100;
+        const dragPercent = (diffX / container.offsetWidth) * 100;
+        track.style.transform = `translateX(${baseOffset + dragPercent}%)`;
+      },
+      { passive: false },
+    );
+
+    container.addEventListener(
+      "touchend",
+      () => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        if (!isHorizontal) return;
+
+        const diffX = currentX - startX;
+        const track = $("swipe-track");
+        track.classList.remove("swiping");
+
+        if (Math.abs(diffX) > threshold) {
+          if (diffX < 0 && state.activeViewIndex < VIEWS.length - 1) {
+            state.activeViewIndex++;
+          } else if (diffX > 0 && state.activeViewIndex > 0) {
+            state.activeViewIndex--;
+          }
+        }
+
+        updateSwipePosition(true);
+        updateBottomNav();
+      },
+      { passive: true },
+    );
   }
 
   /* ── Purchase modal ── */
 
   function getProductByKey(platform, productId) {
     return state.products.find(
-      (product) => product.platform === platform && String(product.product_id) === String(productId),
+      (product) =>
+        product.platform === platform &&
+        String(product.product_id) === String(productId),
     );
   }
 
@@ -472,7 +524,9 @@
     if (!product) return;
 
     state.activeModalProduct = product;
-    state.selectedPricePreset = product.card_price ? PRICE_PRESET_CARD : PRICE_PRESET_CURRENT;
+    state.selectedPricePreset = product.card_price
+      ? PRICE_PRESET_CARD
+      : PRICE_PRESET_CURRENT;
 
     const overlay = $("purchase-modal");
     const content = $("purchase-modal-content");
@@ -538,12 +592,15 @@
     if (!input) return;
 
     if (preset === PRICE_PRESET_CURRENT) input.value = product.price || "";
-    if (preset === PRICE_PRESET_CARD) input.value = product.card_price || product.price || "";
+    if (preset === PRICE_PRESET_CARD)
+      input.value = product.card_price || product.price || "";
     if (preset === PRICE_PRESET_CUSTOM && !input.value) input.value = "";
 
     $("purchase-modal-content")
       .querySelectorAll("[data-preset]")
-      .forEach((btn) => btn.classList.toggle("active", btn.dataset.preset === preset));
+      .forEach((btn) =>
+        btn.classList.toggle("active", btn.dataset.preset === preset),
+      );
   }
 
   function bindPurchaseModalEvents(product) {
@@ -552,7 +609,9 @@
     $("purchase-modal-content")
       .querySelectorAll("[data-preset]")
       .forEach((btn) => {
-        btn.addEventListener("click", () => applyPreset(product, btn.dataset.preset));
+        btn.addEventListener("click", () =>
+          applyPreset(product, btn.dataset.preset),
+        );
       });
 
     $("purchase-save-btn").addEventListener("click", async () => {
@@ -616,19 +675,33 @@
 
     // Buy buttons
     document.querySelectorAll('[data-action="buy"]').forEach((btn) => {
-      btn.addEventListener("click", () => openPurchaseModal(btn.dataset.platform, btn.dataset.productId));
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openPurchaseModal(btn.dataset.platform, btn.dataset.productId);
+      });
+    });
+
+    // Open product on marketplace (click on card)
+    document.querySelectorAll('[data-action="open"]').forEach((card) => {
+      card.addEventListener("click", () => {
+        const url = card.dataset.url;
+        if (url) {
+          window.open(url, "_blank");
+        }
+      });
     });
   }
 
   /* ── Data loading ── */
 
   async function loadData() {
-    const [summary, productsResponse, activityResponse, purchasesResponse] = await Promise.all([
-      apiGet(`/api/stats/summary?telegram_id=${state.telegramId}`),
-      apiGet(`/api/stats/products?telegram_id=${state.telegramId}&limit=50`),
-      apiGet(`/api/stats/activity?telegram_id=${state.telegramId}&days=30`),
-      apiGet(`/api/stats/purchases?telegram_id=${state.telegramId}&limit=50`),
-    ]);
+    const [summary, productsResponse, activityResponse, purchasesResponse] =
+      await Promise.all([
+        apiGet(`/api/stats/summary?telegram_id=${state.telegramId}`),
+        apiGet(`/api/stats/products?telegram_id=${state.telegramId}&limit=50`),
+        apiGet(`/api/stats/activity?telegram_id=${state.telegramId}&days=30`),
+        apiGet(`/api/stats/purchases?telegram_id=${state.telegramId}&limit=50`),
+      ]);
 
     state.summary = summary;
     state.products = productsResponse.products || [];
@@ -660,7 +733,9 @@
   async function main() {
     const telegramIdFromTG = getTelegramIdFromWebApp();
     const telegramIdFromQuery = getQueryParam("telegram_id");
-    state.telegramId = telegramIdFromQuery ? Number(telegramIdFromQuery) : telegramIdFromTG;
+    state.telegramId = telegramIdFromQuery
+      ? Number(telegramIdFromQuery)
+      : telegramIdFromTG;
 
     if (!state.telegramId || Number.isNaN(state.telegramId)) {
       $("subtitle").textContent = "Не удалось определить Telegram ID";
