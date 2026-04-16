@@ -29,17 +29,7 @@ function initElements() {
   elements.userName = document.getElementById("user-name");
   elements.logoutBtn = document.getElementById("logout-btn");
   elements.loginBtn = document.getElementById("login-btn");
-  elements.productSection = document.getElementById("product-section");
-  elements.productPlatform = document.getElementById("product-platform");
-  elements.productName = document.getElementById("product-name");
-  elements.productPrice = document.getElementById("product-price");
-  elements.productPriceOld = document.getElementById("product-price-old");
-  elements.trackBtn = document.getElementById("track-btn");
-  elements.trackBtnIcon = document.getElementById("track-btn-icon");
-  elements.trackBtnText = document.getElementById("track-btn-text");
-  elements.notMarketplaceSection = document.getElementById(
-    "not-marketplace-section",
-  );
+
   elements.trackedSection = document.getElementById("tracked-section");
   elements.trackedList = document.getElementById("tracked-list");
   elements.trackedEmpty = document.getElementById("tracked-empty");
@@ -385,44 +375,6 @@ function renderUI() {
     show(elements.authSection);
   }
 
-  if (state.user && state.currentProduct) {
-    hide(elements.notMarketplaceSection);
-    show(elements.productSection);
-
-    const product = state.currentProduct;
-    elements.productPlatform.textContent =
-      product.platform === "wb" ? "Wildberries" : "Ozon";
-    elements.productPlatform.className = "product-platform " + product.platform;
-    elements.productName.textContent = product.name;
-    elements.productPrice.textContent = product.price
-      ? product.price.toLocaleString("ru")
-      : "—";
-
-    if (product.originalPrice && product.originalPrice > product.price) {
-      elements.productPriceOld.textContent =
-        product.originalPrice.toLocaleString("ru") + " ₽";
-      show(elements.productPriceOld);
-    } else {
-      hide(elements.productPriceOld);
-    }
-
-    const isTracked = isProductTracked(product.platform, product.productId);
-    if (isTracked) {
-      elements.trackBtn.className = "btn btn-tracked";
-      elements.trackBtnIcon.textContent = "✓";
-      elements.trackBtnText.textContent = "Отслеживается";
-    } else {
-      elements.trackBtn.className = "btn btn-primary";
-      elements.trackBtnIcon.textContent = "👁️";
-      elements.trackBtnText.textContent = "Отслеживать";
-    }
-  } else if (state.user) {
-    hide(elements.productSection);
-    show(elements.notMarketplaceSection);
-  } else {
-    hide(elements.productSection);
-    hide(elements.notMarketplaceSection);
-  }
 
   if (state.user) {
     show(elements.trackedSection);
@@ -617,31 +569,17 @@ async function init() {
 
   // Параллельные запросы для ускорения загрузки
   const promises = [];
-  let productIndex = 0;
-  let statsIndex = -1;
-
   if (state.user) {
     promises.push(loadTrackedProducts(state.user.id));
-    productIndex = 1; // getCurrentProduct будет вторым
     promises.push(loadUserStats(state.user.id));
-    statsIndex = 2;
   }
-
-  promises.push(getCurrentProduct());
 
   const results = await Promise.all(promises);
 
-  // Распределяем результаты по индексам
   if (state.user) {
     state.trackedProducts = results[0] || [];
-    // Сохраняем в кэш
     saveTrackedCache(state.trackedProducts);
-    state.currentProduct = results[productIndex];
-    if (statsIndex >= 0) {
-      state.stats = results[statsIndex];
-    }
-  } else {
-    state.currentProduct = results[0];
+    state.stats = results[1] || null;
   }
 
   renderUI();
@@ -651,9 +589,6 @@ async function init() {
   }
   if (elements.logoutBtn) {
     elements.logoutBtn.addEventListener("click", logout);
-  }
-  if (elements.trackBtn) {
-    elements.trackBtn.addEventListener("click", trackProduct);
   }
 
   // Set dashboard link from config

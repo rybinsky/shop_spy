@@ -350,6 +350,8 @@ class UserProductItem(BaseModel):
     last_view: str
     purchase_price: Optional[float] = None
     purchased_at: Optional[str] = None
+    verdict: Optional[str] = None
+    advice_message: Optional[str] = None
 
 
 class UserProductsResponse(BaseModel):
@@ -410,6 +412,27 @@ class UserActivityResponse(BaseModel):
     """Response model for user activity."""
 
     activity: list[DailyActivity]
+
+
+class DecisionFeedItem(BaseModel):
+    """Single decision card for the Mini App."""
+
+    type: str
+    priority: int
+    title: str
+    message: str
+    platform: Optional[str] = None
+    product_id: Optional[str] = None
+    product_name: Optional[str] = None
+    current_price: Optional[float] = None
+    avg_price: Optional[float] = None
+    purchase_price: Optional[float] = None
+
+
+class DecisionFeedResponse(BaseModel):
+    """Response model for action-oriented decision feed."""
+
+    items: list[DecisionFeedItem]
 
 
 # ─────────────────────────────────────────────────────────────

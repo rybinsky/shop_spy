@@ -456,6 +456,65 @@
         color: var(--text-tertiary);
       }
 
+      .advice-banner {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .advice-banner b {
+        color: var(--text-primary);
+      }
+
+      .advice-banner.advice-good {
+        background: var(--success-soft);
+      }
+
+      .advice-banner.advice-warn {
+        background: rgba(255, 184, 0, 0.14);
+      }
+
+      .advice-banner.advice-bad {
+        background: rgba(255, 89, 94, 0.14);
+      }
+
+      .advice-banner.advice-neutral {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .decision-card {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .decision-card + .decision-card {
+        margin-top: 12px;
+      }
+
+      .decision-card.decision-good {
+        background: var(--success-soft);
+      }
+
+      .decision-card.decision-warn {
+        background: rgba(255, 184, 0, 0.14);
+      }
+
+      .decision-card.decision-bad {
+        background: rgba(255, 89, 94, 0.14);
+      }
+
+      .decision-card.decision-neutral {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .decision-message {
+        margin-top: 10px;
+        color: var(--text-primary);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
       .card-actions {
         margin-top: 16px;
         display: flex;

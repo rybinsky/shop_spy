@@ -19,6 +19,7 @@
     products: [],
     activity: [],
     purchases: [],
+    decisions: [],
     activeViewIndex: 0,
     activeModalProduct: null,
     selectedPricePreset: PRICE_PRESET_CURRENT,
@@ -141,6 +142,83 @@
     return "Новичок";
   }
 
+  function getAdviceMeta(product) {
+    const verdict = product?.verdict || "";
+
+    if (verdict === "good_deal") {
+      return { label: "Выгодно", cls: "good", icon: "✅" };
+    }
+    if (verdict === "overpriced") {
+      return { label: "Подождать", cls: "warn", icon: "⚠️" };
+    }
+    if (verdict === "fake_discount") {
+      return { label: "Фейк-скидка", cls: "bad", icon: "🚨" };
+    }
+    if (verdict === "insufficient_data") {
+      return { label: "Мало данных", cls: "neutral", icon: "📊" };
+    }
+    return { label: "Обычная цена", cls: "neutral", icon: "ℹ️" };
+  }
+
+  function getDecisionMeta(item) {
+    if (item?.type === "buy_now") {
+      return { icon: "✅", cls: "good" };
+    }
+    if (item?.type === "wait") {
+      return { icon: "⚠️", cls: "warn" };
+    }
+    if (item?.type === "warning") {
+      return { icon: "🚨", cls: "bad" };
+    }
+    return { icon: "🎉", cls: "neutral" };
+  }
+
+  function buildDecisionCard(item) {
+    const meta = getDecisionMeta(item);
+    const pl = item.platform ? platformLabel(item.platform) : null;
+    const title = escapeHtml(item.title || "Что-то важное");
+    const name = escapeHtml(item.product_name || item.product_id || "Товар");
+    const message = escapeHtml(item.message || "Без подробностей");
+    const currentPrice = formatMoney(item.current_price);
+
+    return `
+      <article class="decision-card decision-${meta.cls}">
+        <div class="product-head">
+          <div class="product-name">${meta.icon} ${title}</div>
+          ${pl ? `<div class="pill ${pl.cls}">${pl.text}</div>` : ""}
+        </div>
+        <div class="section-note">${name}</div>
+        <div class="decision-message">${message}</div>
+        <div class="meta-row muted-row">
+          <span>Текущая цена: <b>${currentPrice}</b></span>
+        </div>
+      </article>
+    `;
+  }
+
+  function buildDecisionFeed() {
+    if (!state.decisions.length) {
+      return `
+        <section class="panel">
+          <div class="section-head">
+            <div class="section-title">Сегодня важно</div>
+            <div class="section-note">Пока нет ярких сигналов — просто продолжайте следить за товарами.</div>
+          </div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="panel">
+        <div class="section-head">
+          <div class="section-title">Сегодня важно</div>
+          <div class="section-note">ShopSpy собрал главные действия по вашим товарам.</div>
+        </div>
+        <div class="stack">${state.decisions.map(buildDecisionCard).join("")}</div>
+      </section>
+    `;
+  }
+
   /* ── Build views ── */
 
   function buildOverview() {
@@ -202,6 +280,8 @@
         <button class="quick-btn" data-view-jump="activity">📈 Активность</button>
       </div>
 
+      ${buildDecisionFeed()}
+
       ${
         best
           ? `
@@ -230,6 +310,10 @@
     const pl = platformLabel(product.platform);
     const title = escapeHtml(product.product_name || product.product_id);
     const productUrl = getProductUrl(product.platform, product.product_id);
+    const advice = getAdviceMeta(product);
+    const adviceMessage = product.advice_message
+      ? escapeHtml(product.advice_message)
+      : "Нет подробного совета по цене.";
     const purchaseInfo = product.purchase_price
       ? `
         <div class="purchase-banner">
@@ -255,6 +339,10 @@
         </div>
         <div class="meta-row muted-row">
           <span>Последний просмотр: <b>${formatDateTime(product.last_view)}</b></span>
+        </div>
+        <div class="purchase-banner advice-banner advice-${advice.cls}">
+          ${advice.icon} <b>${advice.label}</b>
+          <span>· ${adviceMessage}</span>
         </div>
         ${purchaseInfo}
         <div class="card-actions">
@@ -400,17 +488,18 @@
     });
   }
 
+  function resetViewScroll(idx) {
+    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
+    if (activePage) activePage.scrollTop = 0;
+  }
+
   function setActiveView(viewKey) {
     const idx = VIEWS.indexOf(viewKey);
     if (idx === -1 || idx === state.activeViewIndex) return;
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    // Прокрутка активной страницы в начало
-    const activePage = document.querySelector(
-      `.swipe-page[data-page="${idx}"]`,
-    );
-    if (activePage) activePage.scrollTop = 0;
+    resetViewScroll(idx);
   }
 
   function setActiveViewByIndex(idx) {
@@ -418,10 +507,7 @@
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    const activePage = document.querySelector(
-      `.swipe-page[data-page="${idx}"]`,
-    );
-    if (activePage) activePage.scrollTop = 0;
+    resetViewScroll(idx);
   }
 
   /* ── Swipe handling ── */
@@ -494,16 +580,20 @@
         const track = $("swipe-track");
         track.classList.remove("swiping");
 
+        let nextViewIndex = state.activeViewIndex;
+
         if (Math.abs(diffX) > threshold) {
           if (diffX < 0 && state.activeViewIndex < VIEWS.length - 1) {
-            state.activeViewIndex++;
+            nextViewIndex = state.activeViewIndex + 1;
           } else if (diffX > 0 && state.activeViewIndex > 0) {
-            state.activeViewIndex--;
+            nextViewIndex = state.activeViewIndex - 1;
           }
         }
 
+        state.activeViewIndex = nextViewIndex;
         updateSwipePosition(true);
         updateBottomNav();
+        resetViewScroll(nextViewIndex);
       },
       { passive: true },
     );
@@ -695,18 +785,25 @@
   /* ── Data loading ── */
 
   async function loadData() {
-    const [summary, productsResponse, activityResponse, purchasesResponse] =
-      await Promise.all([
-        apiGet(`/api/stats/summary?telegram_id=${state.telegramId}`),
-        apiGet(`/api/stats/products?telegram_id=${state.telegramId}&limit=50`),
-        apiGet(`/api/stats/activity?telegram_id=${state.telegramId}&days=30`),
-        apiGet(`/api/stats/purchases?telegram_id=${state.telegramId}&limit=50`),
-      ]);
+    const [
+      summary,
+      productsResponse,
+      activityResponse,
+      purchasesResponse,
+      decisionsResponse,
+    ] = await Promise.all([
+      apiGet(`/api/stats/summary?telegram_id=${state.telegramId}`),
+      apiGet(`/api/stats/products?telegram_id=${state.telegramId}&limit=50`),
+      apiGet(`/api/stats/activity?telegram_id=${state.telegramId}&days=30`),
+      apiGet(`/api/stats/purchases?telegram_id=${state.telegramId}&limit=50`),
+      apiGet(`/api/stats/decisions?telegram_id=${state.telegramId}`),
+    ]);
 
     state.summary = summary;
     state.products = productsResponse.products || [];
     state.activity = activityResponse.activity || [];
     state.purchases = purchasesResponse.purchases || [];
+    state.decisions = decisionsResponse.items || [];
   }
 
   function renderLoading() {
