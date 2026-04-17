@@ -51,23 +51,29 @@ class PriceAnalyzer:
         if not history or len(history) < 2:
             return self._insufficient_data()
 
-        prices = [h["price"] for h in history]
-        current_price = prices[-1]
+        valid_history = [entry for entry in history if entry.get("price") is not None]
+        if len(valid_history) < 2:
+            return self._insufficient_data()
+
+        prices = [entry["price"] for entry in valid_history]
+        current_entry = valid_history[-1]
+        current_price = current_entry["price"]
         min_price = min(prices)
         max_price = max(prices)
         avg_price = sum(prices) / len(prices)
 
         # Get card prices if available
         card_prices: list[float] = [
-            h["card_price"] for h in history if h.get("card_price") is not None
+            entry["card_price"]
+            for entry in valid_history
+            if entry.get("card_price") is not None
         ]
-        current_card_price = history[-1].get("card_price")
+        current_card_price = current_entry.get("card_price")
         min_card_price = min(card_prices) if card_prices else None
         max_card_price = max(card_prices) if card_prices else None
         avg_card_price = sum(card_prices) / len(card_prices) if card_prices else None
 
-        # Get claimed discount from last entry
-        current_entry = history[-1]
+        # Get claimed discount from last valid entry
         claimed_discount = self._calculate_claimed_discount(
             current_price, current_entry.get("original_price")
         )
@@ -89,7 +95,7 @@ class PriceAnalyzer:
             avg_price=avg_price,
             claimed_discount=claimed_discount,
             real_discount_from_avg=real_discount_from_avg,
-            price_count=len(prices),
+            price_count=len(valid_history),
             current_card_price=current_card_price,
             min_card_price=min_card_price,
         )
