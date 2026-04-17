@@ -24,6 +24,8 @@ from backend.models.schemas import (
     AuthResponse,
     BestDeal,
     DailyActivity,
+    DecisionFeedItem,
+    DecisionFeedResponse,
     ErrorResponse,
     PriceAlertCreate,
     PriceAlertItem,
@@ -63,6 +65,12 @@ api_router = APIRouter()
 # Services
 price_analyzer = PriceAnalyzer()
 ai_analyzer = AIAnalyzer()
+
+DECISION_TYPE_BUY_NOW = "buy_now"
+DECISION_TYPE_WAIT = "wait"
+DECISION_TYPE_WARNING = "warning"
+DECISION_TYPE_WIN = "win"
+DECISION_FEED_LIMIT = 5
 
 # Rate limiting state
 _rate_data: dict = {}
@@ -654,7 +662,32 @@ def get_user_products(
 ):
     """Get list of products viewed by user."""
     products = user_stats.get_user_products(telegram_id, limit)
-    return UserProductsResponse(products=[UserProductItem(**p) for p in products])
+
+    enriched_products: list[UserProductItem] = []
+    for product in products:
+        analysis = price_analyzer.analyze(
+            [
+                {
+                    "price": product.get("avg_price"),
+                    "card_price": None,
+                    "original_price": None,
+                },
+                {
+                    "price": product.get("price"),
+                    "card_price": product.get("card_price"),
+                    "original_price": product.get("original_price"),
+                },
+            ]
+        )
+        enriched_products.append(
+            UserProductItem(
+                **product,
+                verdict=analysis.get("verdict"),
+                advice_message=analysis.get("message"),
+            )
+        )
+
+    return UserProductsResponse(products=enriched_products)
 
 
 @api_router.get("/stats/activity", response_model=UserActivityResponse)
@@ -666,6 +699,126 @@ def get_user_activity(
     """Get user activity for the last N days."""
     activity = user_stats.get_activity_stats(telegram_id, days)
     return UserActivityResponse(activity=[DailyActivity(**a) for a in activity])
+
+
+@api_router.get("/stats/decisions", response_model=DecisionFeedResponse)
+def get_user_decisions(
+    telegram_id: int = Query(..., description="Telegram user ID"),
+    user_stats: UserStatsRepository = Depends(get_user_stats_repo),
+):
+    """Get action-oriented decision cards for the Mini App."""
+    products = user_stats.get_user_products(telegram_id, 50)
+    purchases = user_stats.get_user_purchases(telegram_id, 20)
+    decisions: list[DecisionFeedItem] = []
+
+    for product in products:
+        analysis = price_analyzer.analyze(
+            [
+                {
+                    "price": product.get("avg_price"),
+                    "card_price": None,
+                    "original_price": None,
+                },
+                {
+                    "price": product.get("price"),
+                    "card_price": product.get("card_price"),
+                    "original_price": product.get("original_price"),
+                },
+            ]
+        )
+        verdict = analysis.get("verdict")
+        if verdict == "good_deal":
+            decisions.append(
+                DecisionFeedItem(
+                    type=DECISION_TYPE_BUY_NOW,
+                    priority=95,
+                    title="Можно брать",
+                    message=analysis.get("message") or "Цена выглядит выгодной.",
+                    platform=product.get("platform"),
+                    product_id=product.get("product_id"),
+                    product_name=product.get("product_name"),
+                    current_price=product.get("price"),
+                    avg_price=product.get("avg_price"),
+                )
+            )
+        elif verdict == "overpriced":
+            decisions.append(
+                DecisionFeedItem(
+                    type=DECISION_TYPE_WAIT,
+                    priority=80,
+                    title="Лучше подождать",
+                    message=analysis.get("message") or "Сейчас цена выглядит высокой.",
+                    platform=product.get("platform"),
+                    product_id=product.get("product_id"),
+                    product_name=product.get("product_name"),
+                    current_price=product.get("price"),
+                    avg_price=product.get("avg_price"),
+                )
+            )
+        elif verdict == "fake_discount":
+            decisions.append(
+                DecisionFeedItem(
+                    type=DECISION_TYPE_WARNING,
+                    priority=100,
+                    title="Осторожно со скидкой",
+                    message=analysis.get("message") or "Похоже на фейковую скидку.",
+                    platform=product.get("platform"),
+                    product_id=product.get("product_id"),
+                    product_name=product.get("product_name"),
+                    current_price=product.get("price"),
+                    avg_price=product.get("avg_price"),
+                )
+            )
+
+    for purchase in purchases:
+        purchase_price = purchase.get("purchase_price")
+        current_price = purchase.get("current_price")
+        avg_price = purchase.get("avg_price")
+        product_name = purchase.get("product_name") or purchase.get("product_id")
+
+        if (
+            purchase_price is not None
+            and current_price is not None
+            and current_price > purchase_price
+        ):
+            diff = round(current_price - purchase_price, 2)
+            decisions.append(
+                DecisionFeedItem(
+                    type=DECISION_TYPE_WIN,
+                    priority=70,
+                    title="Покупка оказалась удачной",
+                    message=f"Сейчас товар дороже вашей цены покупки на {diff:,.0f} ₽.",
+                    platform=purchase.get("platform"),
+                    product_id=purchase.get("product_id"),
+                    product_name=product_name,
+                    current_price=current_price,
+                    purchase_price=purchase_price,
+                    avg_price=avg_price,
+                )
+            )
+        elif (
+            purchase_price is not None
+            and avg_price is not None
+            and purchase_price < avg_price
+        ):
+            diff = round(avg_price - purchase_price, 2)
+            decisions.append(
+                DecisionFeedItem(
+                    type=DECISION_TYPE_WIN,
+                    priority=60,
+                    title="Вы купили выгодно",
+                    message=f"Цена покупки была ниже средней на {diff:,.0f} ₽.",
+                    platform=purchase.get("platform"),
+                    product_id=purchase.get("product_id"),
+                    product_name=product_name,
+                    current_price=current_price,
+                    purchase_price=purchase_price,
+                    avg_price=avg_price,
+                )
+            )
+
+    sorted_items = sorted(decisions, key=lambda item: item.priority, reverse=True)
+    return DecisionFeedResponse(items=sorted_items[:DECISION_FEED_LIMIT])
 
 
 @api_router.post("/stats/purchase", response_model=SuccessResponse)
