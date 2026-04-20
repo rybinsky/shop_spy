@@ -109,48 +109,344 @@
     margin-bottom: 10px;
 }
 
-/* ── Вердикт по цене ── */
+/* ── Price cockpit ── */
 
-.shopspy-verdict {
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 13px;
-    line-height: 1.5;
+.shopspy-price-hero {
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
 }
 
-.shopspy-verdict.good_deal {
-    background: rgba(76, 175, 80, 0.15);
-    border: 1px solid rgba(76, 175, 80, 0.3);
+.shopspy-price-hero.good_deal {
+    background: rgba(76, 175, 80, 0.12);
+    border-color: rgba(76, 175, 80, 0.25);
+}
+
+.shopspy-price-hero.fake_discount {
+    background: rgba(233, 69, 96, 0.12);
+    border-color: rgba(233, 69, 96, 0.25);
+}
+
+.shopspy-price-hero.overpriced {
+    background: rgba(255, 152, 0, 0.12);
+    border-color: rgba(255, 152, 0, 0.25);
+}
+
+.shopspy-price-hero.insufficient_data,
+.shopspy-price-hero.normal,
+.shopspy-price-hero.error {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.shopspy-price-hero-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.shopspy-price-hero-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #aaa;
+    margin-bottom: 6px;
+}
+
+.shopspy-price-hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #fff;
+}
+
+.shopspy-price-hero-subtitle {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #cfcfcf;
+}
+
+.shopspy-price-hero-confidence {
+    flex-shrink: 0;
+    min-width: 86px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.16);
+    text-align: right;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.shopspy-price-hero-confidence span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #b7b7b7;
+}
+
+.shopspy-price-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.shopspy-price-fact {
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.shopspy-price-fact-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #8f8f8f;
+    margin-bottom: 4px;
+}
+
+.shopspy-price-fact-value {
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 600;
+    color: #f2f2f2;
+}
+
+.shopspy-price-hero-note {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #d6d6d6;
+}
+
+.shopspy-price-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.shopspy-price-tile {
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shopspy-price-tile-card {
+    background: rgba(167, 139, 250, 0.08);
+}
+
+.shopspy-price-tile-label {
+    font-size: 11px;
+    color: #9f9f9f;
+    margin-bottom: 6px;
+}
+
+.shopspy-card-chip {
+    font-weight: 700;
+}
+
+.shopspy-price-tile-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+}
+
+.shopspy-price-tile-meta {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.shopspy-price-old {
+    font-size: 12px;
+    color: #777;
+    text-decoration: line-through;
+}
+
+.shopspy-price-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #81c784;
+    background: rgba(76, 175, 80, 0.12);
+}
+
+.shopspy-price-muted {
+    font-size: 11px;
+    color: #8f8f8f;
+}
+
+.shopspy-card-advantage {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid;
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.shopspy-card-advantage-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.shopspy-range-card {
+    padding: 14px 12px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shopspy-range-track-wrap {
+    padding-top: 20px;
+}
+
+.shopspy-range-track {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    overflow: visible;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.shopspy-range-zone {
+    height: 100%;
+}
+
+.shopspy-range-zone-good {
+    width: 35%;
+    background: rgba(76, 175, 80, 0.65);
+}
+
+.shopspy-range-zone-mid {
+    width: 30%;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.shopspy-range-zone-risk {
+    width: 35%;
+    background: rgba(255, 152, 0, 0.45);
+}
+
+.shopspy-range-marker {
+    position: absolute;
+    top: -18px;
+    transform: translateX(-50%);
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #fff;
+    color: #111;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.shopspy-range-marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100%;
+    width: 2px;
+    height: 14px;
+    background: currentColor;
+    opacity: 0.5;
+}
+
+.shopspy-range-marker.average {
+    background: #8b8b8b;
+    color: #fff;
+}
+
+.shopspy-range-marker.card {
+    background: #a78bfa;
+    color: #fff;
+}
+
+.shopspy-range-marker.current {
+    background: #fff;
+    color: #111;
+}
+
+.shopspy-range-legend {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: #9b9b9b;
+}
+
+.shopspy-range-legend b {
+    color: #fff;
+    font-weight: 600;
+}
+
+.shopspy-history-summary {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #8d8d8d;
+    margin-top: 6px;
+}
+
+.shopspy-history-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    margin-top: 6px;
+    color: #cfcfcf;
+}
+
+.shopspy-history-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.shopspy-history-line {
+    width: 12px;
+    height: 2px;
+    border-radius: 999px;
+    background: #e94560;
+}
+
+.shopspy-history-line.card {
+    border-top: 1px dashed currentColor;
+}
+
+.shopspy-saving-banner {
+    padding: 10px 12px;
+    background: rgba(76, 175, 80, 0.12);
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
     color: #81c784;
 }
 
-.shopspy-verdict.fake_discount {
-    background: rgba(233, 69, 96, 0.15);
-    border: 1px solid rgba(233, 69, 96, 0.3);
-    color: #ef9a9a;
-}
-
-.shopspy-verdict.overpriced {
-    background: rgba(255, 152, 0, 0.15);
-    border: 1px solid rgba(255, 152, 0, 0.3);
-    color: #ffcc80;
-}
-
-.shopspy-verdict.normal {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #bbb;
-}
-
-.shopspy-verdict.insufficient_data {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #777;
-}
-
-.shopspy-verdict-icon {
+.shopspy-saving-banner-icon {
     font-size: 18px;
-    margin-right: 8px;
+    line-height: 1;
 }
 
 /* ── График цен ── */
@@ -396,4 +692,94 @@
 
 .shopspy-track-btn.tracking {
     background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+/* ── Value Index ── */
+
+.shopspy-value-index {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.shopspy-value-index-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.shopspy-value-index-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #bbb;
+}
+
+.shopspy-value-index-score {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.shopspy-value-index-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.shopspy-value-index-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+.shopspy-value-index-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #999;
+    line-height: 1.4;
+}
+
+/* ── Trend Note ── */
+
+.shopspy-trend-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 12px;
+    color: #bbb;
+    border-left: 3px solid #666;
+}
+
+/* ── Stats Grid ── */
+
+.shopspy-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.shopspy-stat-item {
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    text-align: center;
+}
+
+.shopspy-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.shopspy-stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e0e0e0;
+    line-height: 1.3;
 }

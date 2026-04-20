@@ -4,7 +4,6 @@ ShopSpy - Pydantic Models / Schemas
 Data validation and serialization models for API requests and responses.
 """
 
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -81,6 +80,26 @@ class PriceAnalysis(BaseModel):
     claimed_discount: Optional[int] = None
     real_discount_from_max: Optional[int] = None
     real_discount_from_avg: Optional[int] = None
+    # Advanced analysis metrics
+    trend: str = Field(
+        "stable",
+        description="Price trend: rising, falling, stable, rising_slightly, falling_slightly",
+    )
+    trend_message: str = Field("", description="Human-readable trend description")
+    recommendation: str = Field(
+        "neutral",
+        description="Purchase recommendation: buy_now, wait, good_price, buy_soon, neutral",
+    )
+    recommendation_message: str = Field("", description="Human-readable recommendation")
+    value_index: int = Field(
+        50, description="Value index 0-100 where 100 is the best deal", ge=0, le=100
+    )
+    price_changes_count: int = Field(
+        0, description="Number of price changes in history", ge=0
+    )
+    volatility: str = Field(
+        "unknown", description="Price volatility: low, medium, high, unknown"
+    )
 
 
 class PriceHistoryResponse(BaseModel):

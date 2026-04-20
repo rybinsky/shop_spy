@@ -274,12 +274,6 @@
         </div>
       </div>
 
-      <div class="quick-actions">
-        <button class="quick-btn" data-view-jump="products">🛍 Товары</button>
-        <button class="quick-btn" data-view-jump="purchases">✅ Покупки</button>
-        <button class="quick-btn" data-view-jump="activity">📈 Активность</button>
-      </div>
-
       ${buildDecisionFeed()}
 
       ${
@@ -489,21 +483,48 @@
   }
 
   function resetViewScroll(idx) {
-    const activePage = document.querySelector(`.swipe-page[data-page="${idx}"]`);
-    if (activePage) activePage.scrollTop = 0;
+    // Reset scroll on ALL pages, not just the active one
+    // This ensures when user swipes back, they see the top
+    const allPages = document.querySelectorAll(".swipe-page");
+
+    const resetPageScroll = (page) => {
+      if (!page) return;
+      // Direct scrollTop assignment is most reliable
+      page.scrollTop = 0;
+      // Also try scrollTo as backup
+      try {
+        page.scrollTo(0, 0);
+      } catch (e) {}
+    };
+
+    // Reset all pages
+    allPages.forEach((page) => {
+      resetPageScroll(page);
+    });
+
+    // Also reset window scroll
+    window.scrollTo(0, 0);
+
+    // Reset again after a frame to ensure it takes effect
+    requestAnimationFrame(() => {
+      allPages.forEach((page) => {
+        resetPageScroll(page);
+      });
+    });
   }
 
   function setActiveView(viewKey) {
     const idx = VIEWS.indexOf(viewKey);
     if (idx === -1 || idx === state.activeViewIndex) return;
+    resetViewScroll(idx);
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();
-    resetViewScroll(idx);
   }
 
   function setActiveViewByIndex(idx) {
     if (idx < 0 || idx >= VIEWS.length || idx === state.activeViewIndex) return;
+    resetViewScroll(idx);
     state.activeViewIndex = idx;
     updateSwipePosition(true);
     updateBottomNav();

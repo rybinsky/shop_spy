@@ -314,106 +314,355 @@ const SHOPSPY = {
 
     let html = "";
 
-    // ── Блок: Текущие цены ──
-    if (price || cardPrice) {
-      // Рассчитываем скидки
-      const discountFromOriginal =
-        originalPrice && originalPrice > price
-          ? Math.round((1 - price / originalPrice) * 100)
-          : null;
-      const cardDiscount =
-        originalPrice && cardPrice
-          ? Math.round((1 - cardPrice / originalPrice) * 100)
-          : null;
-      const cardVsRegular =
-        price && cardPrice && cardPrice < price
-          ? Math.round((1 - cardPrice / price) * 100)
-          : null;
+    const formatMoney = (value) =>
+      value || value === 0
+        ? `${Math.round(value).toLocaleString("ru")} ₽`
+        : "—";
+    const formatPercent = (value) =>
+      value || value === 0 ? `${value > 0 ? "+" : ""}${value}%` : "—";
+    const safeNumber = (value) => (value || value === 0 ? Number(value) : null);
+    const clamp = (value, minValue, maxValue) =>
+      Math.min(Math.max(value, minValue), maxValue);
+    const buildMarker = (label, value, modifier = "") => {
+      if (value === null || value === undefined) return "";
+      return `<div class="shopspy-range-marker ${modifier}" style="left:${value}%;">${label}</div>`;
+    };
 
+    // New backend analysis metrics
+    const backendTrend = analysis.trend || "stable";
+    const backendTrendMessage = analysis.trend_message || "";
+    const backendRecommendation = analysis.recommendation || "neutral";
+    const backendRecommendationMessage = analysis.recommendation_message || "";
+    const valueIndex = analysis.value_index ?? 50;
+    const priceChangesCount = analysis.price_changes_count ?? 0;
+    const volatility = analysis.volatility || "unknown";
+
+    // Value index color based on score
+    const getValueIndexColor = (index) => {
+      if (index >= 80) return "#4ade80"; // green - excellent
+      if (index >= 60) return "#a3e635"; // lime - good
+      if (index >= 40) return "#facc15"; // yellow - neutral
+      if (index >= 20) return "#fb923c"; // orange - not great
+      return "#ef4444"; // red - bad
+    };
+    const valueIndexColor = getValueIndexColor(valueIndex);
+
+    const prices = (history || [])
+      .map((h) => safeNumber(h.price))
+      .filter((value) => value !== null);
+    const cardHistory = (history || []).filter(
+      (h) => h.card_price !== null && h.card_price !== undefined,
+    );
+    const cardPrices = cardHistory
+      .map((h) => safeNumber(h.card_price))
+      .filter((value) => value !== null);
+    const allValues = [...prices, ...cardPrices];
+    const hasHistory = prices.length > 1;
+    const minPrice =
+      safeNumber(analysis.min_price) ??
+      (allValues.length ? Math.min(...allValues) : null);
+    const maxPrice =
+      safeNumber(analysis.max_price) ??
+      (allValues.length ? Math.max(...allValues) : null);
+    const avgPrice =
+      safeNumber(analysis.avg_price) ??
+      (prices.length
+        ? Math.round(
+            prices.reduce((sum, value) => sum + value, 0) / prices.length,
+          )
+        : null);
+    const currentPrice =
+      safeNumber(price) ?? safeNumber(analysis.current_price);
+    const currentCardPrice =
+      safeNumber(cardPrice) ?? safeNumber(analysis.card_price);
+    const currentRangeValue = currentCardPrice ?? currentPrice;
+    const range =
+      minPrice !== null && maxPrice !== null
+        ? Math.max(maxPrice - minPrice, 1)
+        : 1;
+    const currentPosition =
+      currentRangeValue !== null && minPrice !== null && maxPrice !== null
+        ? clamp(((currentRangeValue - minPrice) / range) * 100, 0, 100)
+        : null;
+    const regularPosition =
+      currentPrice !== null && minPrice !== null && maxPrice !== null
+        ? clamp(((currentPrice - minPrice) / range) * 100, 0, 100)
+        : null;
+    const averagePosition =
+      avgPrice !== null && minPrice !== null && maxPrice !== null
+        ? clamp(((avgPrice - minPrice) / range) * 100, 0, 100)
+        : null;
+    const cardPosition =
+      currentCardPrice !== null && minPrice !== null && maxPrice !== null
+        ? clamp(((currentCardPrice - minPrice) / range) * 100, 0, 100)
+        : null;
+
+    const discountFromOriginal =
+      currentPrice && originalPrice && originalPrice > currentPrice
+        ? Math.round((1 - currentPrice / originalPrice) * 100)
+        : null;
+    const cardDiscount =
+      currentCardPrice && originalPrice && originalPrice > currentCardPrice
+        ? Math.round((1 - currentCardPrice / originalPrice) * 100)
+        : null;
+    const cardVsRegularAmount =
+      currentPrice && currentCardPrice && currentCardPrice < currentPrice
+        ? Math.round(currentPrice - currentCardPrice)
+        : null;
+    const cardVsRegularPercent =
+      currentPrice && currentCardPrice && currentCardPrice < currentPrice
+        ? Math.round((1 - currentCardPrice / currentPrice) * 100)
+        : null;
+    const deltaToMinPercent =
+      currentRangeValue && minPrice
+        ? Math.round(((currentRangeValue - minPrice) / minPrice) * 100)
+        : null;
+    const deltaToAvgPercent =
+      currentRangeValue && avgPrice
+        ? Math.round(((currentRangeValue - avgPrice) / avgPrice) * 100)
+        : null;
+    const trendPercent =
+      prices.length >= 2 && prices[0] > 0
+        ? Math.round(
+            ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100,
+          )
+        : null;
+    const confidenceLabel =
+      prices.length >= 10
+        ? "высокая"
+        : prices.length >= 5
+          ? "средняя"
+          : "низкая";
+    const cardNameInstrument = cardName
+      .replace("Кошелёк", "кошельком")
+      .replace("Банк", "картой");
+
+    const getHeroMeta = () => {
+      const verdict = analysis.verdict;
+      if (verdict === "fake_discount") {
+        return {
+          title: "Осторожно со скидкой",
+          subtitle: "Заявленная выгода выглядит слабее реальной истории цены.",
+        };
+      }
+      if (currentCardPrice && currentPrice && currentCardPrice < currentPrice) {
+        if (verdict === "good_deal") {
+          return {
+            title: "Выгодно только по карте",
+            subtitle: `Обычная цена выглядит заметно слабее, чем предложение с ${cardNameInstrument}.`,
+          };
+        }
+        return {
+          title: "Есть смысл смотреть цену по карте",
+          subtitle: `С ${cardNameInstrument} цена лучше обычной на ${formatMoney(cardVsRegularAmount)}.`,
+        };
+      }
+      if (verdict === "good_deal") {
+        return {
+          title: "Хороший момент",
+          subtitle:
+            "Цена находится в нижней части диапазона за период наблюдения.",
+        };
+      }
+      if (verdict === "overpriced") {
+        return {
+          title: "Лучше подождать",
+          subtitle:
+            "Сейчас цена выглядит высокой относительно недавней истории.",
+        };
+      }
+      if (verdict === "insufficient_data") {
+        return {
+          title: "Пока мало данных",
+          subtitle:
+            "Нужно накопить ещё несколько наблюдений, чтобы совет был увереннее.",
+        };
+      }
+      return {
+        title: "Цена без резких сигналов",
+        subtitle:
+          "Сейчас товар выглядит ближе к обычному диапазону, чем к явной выгоде.",
+      };
+    };
+
+    const heroMeta = getHeroMeta();
+    const insightItems = [];
+
+    if (deltaToMinPercent !== null) {
+      insightItems.push({
+        label: "К минимуму",
+        value:
+          deltaToMinPercent <= 0
+            ? "на минимуме"
+            : `+${deltaToMinPercent}% от минимума`,
+      });
+    }
+    if (deltaToAvgPercent !== null) {
+      insightItems.push({
+        label: "К средней",
+        value:
+          deltaToAvgPercent < 0
+            ? `${deltaToAvgPercent}% ниже средней`
+            : deltaToAvgPercent > 0
+              ? `+${deltaToAvgPercent}% выше средней`
+              : "на уровне средней",
+      });
+    }
+    if (trendPercent !== null) {
+      const trendText =
+        trendPercent < 0
+          ? `↓ ${Math.abs(trendPercent)}% за период`
+          : trendPercent > 0
+            ? `↑ ${trendPercent}% за период`
+            : "≈ без заметного тренда";
+      insightItems.push({ label: "Тренд", value: trendText });
+    }
+    if (cardVsRegularAmount) {
+      insightItems.push({
+        label: cardName,
+        value: `экономия ${formatMoney(cardVsRegularAmount)} (${cardVsRegularPercent}%)`,
+      });
+    }
+
+    // Value Index visualization
+    const valueIndexHtml = `<div class="shopspy-value-index">
+      <div class="shopspy-value-index-header">
+        <span class="shopspy-value-index-label">Индекс выгодности</span>
+        <span class="shopspy-value-index-score" style="color:${valueIndexColor};">${valueIndex}/100</span>
+      </div>
+      <div class="shopspy-value-index-bar">
+        <div class="shopspy-value-index-fill" style="width:${valueIndex}%;background:${valueIndexColor};"></div>
+      </div>
+      <div class="shopspy-value-index-hint">${backendRecommendationMessage || "Анализ цены относительно истории"}</div>
+    </div>`;
+
+    html += `<div class="shopspy-section">
+      <div class="shopspy-price-hero ${analysis.verdict}">
+        <div class="shopspy-price-hero-top">
+          <div>
+            <div class="shopspy-price-hero-label">${icons[analysis.verdict] || "ℹ️"} Решение по цене</div>
+            <div class="shopspy-price-hero-title">${heroMeta.title}</div>
+            <div class="shopspy-price-hero-subtitle">${heroMeta.subtitle}</div>
+          </div>
+          <div class="shopspy-price-hero-confidence">${prices.length || 0} точек<br><span>${confidenceLabel} уверенность</span></div>
+        </div>
+        ${valueIndexHtml}
+        <div class="shopspy-price-facts">
+          ${insightItems
+            .slice(0, 3)
+            .map(
+              (item) => `
+            <div class="shopspy-price-fact">
+              <div class="shopspy-price-fact-label">${item.label}</div>
+              <div class="shopspy-price-fact-value">${item.value}</div>
+            </div>`,
+            )
+            .join("")}
+        </div>
+        <div class="shopspy-price-hero-note">${analysis.message}</div>
+        ${backendTrendMessage ? `<div class="shopspy-trend-note">${backendTrendMessage}</div>` : ""}
+      </div>
+    </div>`;
+
+    if (currentPrice || currentCardPrice) {
       html += `<div class="shopspy-section">
-        <div class="shopspy-section-title">💰 Текущие цены</div>`;
+        <div class="shopspy-section-title">💰 Текущие цены</div>
+        <div class="shopspy-price-grid">`;
 
-      // Цена по карте (если есть)
-      if (cardPrice && cardPrice !== price) {
-        html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
-          <span style="font-size:11px;${cardBadgeBg};-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:2px 6px;border-radius:4px;font-weight:600;">${cardName}</span>
-          <span style="font-size:24px;font-weight:700;color:${cardPriceColor};">${cardPrice.toLocaleString("ru")} ₽</span>`;
-        if (cardDiscount) {
-          html += `<span style="font-size:12px;font-weight:600;color:#4ade80;">−${cardDiscount}%</span>`;
-        }
-        html += `</div>`;
+      if (currentPrice) {
+        html += `<div class="shopspy-price-tile">
+          <div class="shopspy-price-tile-label">Обычная цена</div>
+          <div class="shopspy-price-tile-value">${formatMoney(currentPrice)}</div>
+          <div class="shopspy-price-tile-meta">
+            ${
+              originalPrice && originalPrice > currentPrice
+                ? `<span class="shopspy-price-old">${formatMoney(originalPrice)}</span><span class="shopspy-price-badge">−${discountFromOriginal}%</span>`
+                : `<span class="shopspy-price-muted">Без явной скидки от зачёркнутой</span>`
+            }
+          </div>
+        </div>`;
       }
 
-      // Основная цена (без карты)
-      if (price) {
-        html += `<div style="display:flex;align-items:baseline;gap:10px;">
-          <span style="font-size:20px;font-weight:700;color:#fff;">${price.toLocaleString("ru")} ₽</span>`;
-        if (originalPrice && originalPrice > price) {
-          html += `<span style="font-size:13px;text-decoration:line-through;color:#666;">${originalPrice.toLocaleString("ru")} ₽</span>
-            <span style="font-size:12px;font-weight:600;color:#e94560;">−${discountFromOriginal}%</span>`;
-        }
-        html += `</div>`;
+      if (currentCardPrice && currentCardPrice !== currentPrice) {
+        html += `<div class="shopspy-price-tile shopspy-price-tile-card">
+          <div class="shopspy-price-tile-label">
+            <span class="shopspy-card-chip" style="${cardBadgeBg};-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${cardName}</span>
+          </div>
+          <div class="shopspy-price-tile-value" style="color:${cardPriceColor};">${formatMoney(currentCardPrice)}</div>
+          <div class="shopspy-price-tile-meta">
+            ${
+              cardDiscount
+                ? `<span class="shopspy-price-badge">−${cardDiscount}% от зачёркнутой</span>`
+                : `<span class="shopspy-price-muted">Спеццена с ${cardNameInstrument}</span>`
+            }
+          </div>
+        </div>`;
       }
 
-      // Экономия с картой
-      if (cardVsRegular) {
-        html += `<div style="margin-top:8px;padding:8px 10px;background:${cardBadgeBgRgba};border:1px solid ${cardBadgeBorderRgba};border-radius:6px;">
-          <span style="font-size:12px;color:${cardBadgeTextRgba};">${cardEmoji} С ${cardName.replace("Кошелёк", "кошельком").replace("Банк", "картой")} экономия ${cardVsRegular}%</span>
+      html += `</div>`;
+
+      if (cardVsRegularAmount) {
+        html += `<div class="shopspy-card-advantage" style="background:${cardBadgeBgRgba};border-color:${cardBadgeBorderRgba};color:${cardBadgeTextRgba};">
+          <span class="shopspy-card-advantage-icon">${cardEmoji}</span>
+          <span>С ${cardNameInstrument} цена ниже на <b>${formatMoney(cardVsRegularAmount)}</b> (${cardVsRegularPercent}%).</span>
         </div>`;
       }
 
       html += `</div>`;
     }
 
-    // ── Блок: Анализ цены ──
-    html += `<div class="shopspy-section">
-      <div class="shopspy-section-title">📊 Анализ цены</div>
-      <div class="shopspy-verdict ${analysis.verdict}">
-        <span class="shopspy-verdict-icon">${icons[analysis.verdict] || "ℹ️"}</span>
-        ${analysis.message}
-      </div>
-    </div>`;
+    if (currentPosition !== null) {
+      html += `<div class="shopspy-section">
+        <div class="shopspy-section-title">🎯 Позиция цены</div>
+        <div class="shopspy-range-card">
+          <div class="shopspy-range-track-wrap">
+            <div class="shopspy-range-track">
+              <div class="shopspy-range-zone shopspy-range-zone-good"></div>
+              <div class="shopspy-range-zone shopspy-range-zone-mid"></div>
+              <div class="shopspy-range-zone shopspy-range-zone-risk"></div>
+              ${buildMarker("Сейчас", regularPosition, "current")}
+              ${
+                cardPosition !== null && cardPosition !== regularPosition
+                  ? buildMarker(cardName, cardPosition, "card")
+                  : ""
+              }
+              ${buildMarker("Средняя", averagePosition, "average")}
+            </div>
+          </div>
+          <div class="shopspy-range-legend">
+            <span>Мин: <b>${formatMoney(minPrice)}</b></span>
+            <span>Средняя: <b>${formatMoney(avgPrice)}</b></span>
+            <span>Макс: <b>${formatMoney(maxPrice)}</b></span>
+          </div>
+        </div>
+      </div>`;
+    }
 
-    // ── Блок: График цен ──
-    if (history && history.length > 1) {
-      const prices = history.map((h) => h.price);
-      const cardPrices = history
-        .map((h) => h.card_price)
-        .filter((p) => p !== null && p !== undefined);
-
-      // Находим min/max включая обе цены
-      const allValues = [...prices, ...cardPrices];
-      let min = Math.min(...allValues);
-      let max = Math.max(...allValues);
-      const range = max - min || 1;
-      const W = 340,
-        H = 80;
-
-      // Точки для основной цены
+    if (hasHistory) {
+      const W = 340;
+      const H = 80;
+      const pointsCount = prices.length;
       const pts = prices
         .map(
-          (p, i) =>
-            `${(i / (prices.length - 1)) * W},${H - ((p - min) / range) * (H - 10) - 5}`,
+          (value, index) =>
+            `${(index / (pointsCount - 1)) * W},${H - ((value - minPrice) / range) * (H - 10) - 5}`,
         )
         .join(" ");
 
-      // Точки для цены по карте (фиолетовая линия)
       let cardPts = "";
-      if (cardPrices.length > 0) {
-        const cardHistory = history.filter(
-          (h) => h.card_price !== null && h.card_price !== undefined,
-        );
+      if (cardPrices.length > 1) {
         cardPts = cardHistory
-          .map(
-            (h, i) =>
-              `${(i / (cardHistory.length - 1)) * W},${H - ((h.card_price - min) / range) * (H - 10) - 5}`,
-          )
+          .map((entry, index) => {
+            const x =
+              cardHistory.length === 1
+                ? W
+                : (index / (cardHistory.length - 1)) * W;
+            const y =
+              H - ((entry.card_price - minPrice) / range) * (H - 10) - 5;
+            return `${x},${y}`;
+          })
           .join(" ");
       }
-
-      const avgPrice =
-        analysis.avg_price ||
-        Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
 
       html += `<div class="shopspy-section">
         <div class="shopspy-section-title">📈 История цен (${history.length} точек)</div>
@@ -423,44 +672,73 @@ const SHOPSPY = {
               <stop offset="0%" stop-color="#e94560" stop-opacity="0.3"/>
               <stop offset="100%" stop-color="#e94560" stop-opacity="0"/>
             </linearGradient>
-            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="${cardPriceColor}" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="${cardPriceColor}" stop-opacity="0"/>
-            </linearGradient>
           </defs>
           <polygon points="0,${H} ${pts} ${W},${H}" fill="url(#sg)"/>
           <polyline points="${pts}" fill="none" stroke="#e94560" stroke-width="2"/>
           ${cardPts ? `<polyline points="${cardPts}" fill="none" stroke="${cardPriceColor}" stroke-width="2" stroke-dasharray="4,2"/>` : ""}
-          <!-- Линия средней цены -->
-          <line x1="0" y1="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
-                x2="${W}" y2="${H - ((avgPrice - min) / range) * (H - 10) - 5}"
-                stroke="#888" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+          ${
+            averagePosition !== null
+              ? `<line x1="0" y1="${H - ((avgPrice - minPrice) / range) * (H - 10) - 5}"
+                x2="${W}" y2="${H - ((avgPrice - minPrice) / range) * (H - 10) - 5}"
+                stroke="#888" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>`
+              : ""
+          }
         </svg>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;margin-top:4px;">
-          <span>мин: ${min.toLocaleString("ru")} ₽</span>
-          <span style="color:#888;">сред: ${avgPrice.toLocaleString("ru")} ₽</span>
-          <span>макс: ${max.toLocaleString("ru")} ₽</span>
+        <div class="shopspy-history-summary">
+          <span>мин: ${formatMoney(minPrice)}</span>
+          <span>сред: ${formatMoney(avgPrice)}</span>
+          <span>макс: ${formatMoney(maxPrice)}</span>
         </div>
         ${
           cardPrices.length > 0
-            ? `<div style="display:flex;gap:16px;font-size:11px;margin-top:6px;">
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#e94560;border-radius:1px;"></span>Обычная</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:${cardPriceColor};border-radius:1px;border-top:1px dashed ${cardPriceColor};"></span>${cardName}</span>
-        </div>`
+            ? `<div class="shopspy-history-legend">
+                <span><span class="shopspy-history-line regular"></span>Обычная</span>
+                <span><span class="shopspy-history-line card" style="background:${cardPriceColor};"></span>${cardName}</span>
+              </div>`
             : ""
         }
       </div>`;
 
-      // ── Блок: Экономия ──
-      if (price && price < avgPrice) {
-        const savings = Math.round(avgPrice - price);
+      if (currentRangeValue && avgPrice && currentRangeValue < avgPrice) {
+        const savings = Math.round(avgPrice - currentRangeValue);
         html += `<div class="shopspy-section">
-          <div style="padding:10px 12px;background:rgba(76,175,80,0.12);border:1px solid rgba(76,175,80,0.25);border-radius:8px;display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">💸</span>
-            <span style="font-size:13px;color:#81c784;">Вы экономите ~${savings.toLocaleString("ru")} ₽ по сравнению со средней ценой</span>
+          <div class="shopspy-saving-banner">
+            <span class="shopspy-saving-banner-icon">💸</span>
+            <span>Вы экономите примерно <b>${formatMoney(savings)}</b> относительно средней цены.</span>
           </div>
         </div>`;
       }
+
+      // Price behavior stats
+      const volatilityLabels = {
+        low: "стабильная",
+        medium: "умеренная",
+        high: "частые скачки",
+        unknown: "неизвестно",
+      };
+      const volatilityColors = {
+        low: "#4ade80",
+        medium: "#facc15",
+        high: "#ef4444",
+        unknown: "#888",
+      };
+      html += `<div class="shopspy-section">
+        <div class="shopspy-section-title">📊 Статистика цены</div>
+        <div class="shopspy-stats-grid">
+          <div class="shopspy-stat-item">
+            <div class="shopspy-stat-label">Изменений цены</div>
+            <div class="shopspy-stat-value">${priceChangesCount}</div>
+          </div>
+          <div class="shopspy-stat-item">
+            <div class="shopspy-stat-label">Волатильность</div>
+            <div class="shopspy-stat-value" style="color:${volatilityColors[volatility]};">${volatilityLabels[volatility]}</div>
+          </div>
+          <div class="shopspy-stat-item">
+            <div class="shopspy-stat-label">Тренд</div>
+            <div class="shopspy-stat-value">${backendTrendMessage || "—"}</div>
+          </div>
+        </div>
+      </div>`;
     }
 
     // ── Блок: Отслеживание ──
